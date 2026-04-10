@@ -1,0 +1,26 @@
+# ── Trading core ──────────────────────────────────────────────────────────
+alpaca-py>=0.38.0
+pandas>=2.2.0
+numpy>=2.0.0
+aiohttp>=3.9.0
+websockets>=12.0
+pyyaml>=6.0
+python-dotenv>=1.0.0
+rich>=13.7.0
+structlog>=24.1.0
+pytz>=2024.1
+scipy>=1.13.0
+ta>=0.11.0
+schedule>=1.2.0
+
+# ── Web application ────────────────────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+sqlalchemy>=2.0.0
+passlib[bcrypt]>=1.7.4
+python-jose[cryptography]>=3.3.0
+python-multipart>=0.0.9
+pydantic[email]>=2.7.0
+
+# ── Production DB (optional — comment out if using SQLite only) ───────────
+# psycopg2-binary>=2.9.9

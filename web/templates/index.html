@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VADER — SMC Trading Bot</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    body { background: #0a0f1a; color: #e2e8f0; font-family: 'Courier New', monospace; }
+    .card { background: #111827; border: 1px solid #1f2937; border-radius: 8px; }
+    .btn-primary { background: #2563eb; color: #fff; border-radius: 6px; padding: 8px 20px; font-weight: 600; transition: background 0.2s; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-danger { background: #dc2626; color: #fff; border-radius: 6px; padding: 8px 20px; font-weight: 600; transition: background 0.2s; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-outline { border: 1px solid #374151; color: #9ca3af; border-radius: 6px; padding: 8px 20px; font-weight: 600; transition: all 0.2s; }
+    .btn-outline:hover { border-color: #6b7280; color: #e5e7eb; }
+    .input { background: #1f2937; border: 1px solid #374151; border-radius: 6px; padding: 10px 14px; width: 100%; color: #e2e8f0; outline: none; }
+    .input:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,0.2); }
+    .badge-green { background: #052e16; color: #4ade80; border: 1px solid #166534; padding: 2px 10px; border-radius: 999px; font-size: 12px; }
+    .badge-red { background: #450a0a; color: #f87171; border: 1px solid #991b1b; padding: 2px 10px; border-radius: 999px; font-size: 12px; }
+    .badge-gray { background: #1f2937; color: #6b7280; border: 1px solid #374151; padding: 2px 10px; border-radius: 999px; font-size: 12px; }
+    .pnl-pos { color: #4ade80; }
+    .pnl-neg { color: #f87171; }
+    .dot-live { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; display: inline-block; animation: pulse 1.5s infinite; }
+    .dot-off  { width: 8px; height: 8px; background: #6b7280; border-radius: 50%; display: inline-block; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+    table { width: 100%; border-collapse: collapse; }
+    th { color: #6b7280; font-size: 11px; text-transform: uppercase; padding: 8px 12px; text-align: left; border-bottom: 1px solid #1f2937; }
+    td { padding: 10px 12px; border-bottom: 1px solid #111827; font-size: 13px; }
+    tr:hover td { background: #1a2333; }
+    .tab { padding: 8px 16px; border-bottom: 2px solid transparent; cursor: pointer; color: #6b7280; font-size: 14px; }
+    .tab.active { border-bottom-color: #2563eb; color: #60a5fa; }
+  </style>
+</head>
+<body x-data="app()" x-init="init()" x-cloak>
+
+<!-- ═══════════════════════════════════════════════════════ AUTH SCREENS -->
+<div x-show="!token" class="min-h-screen flex items-center justify-center px-4">
+  <div class="card p-8 w-full max-w-md">
+
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-bold text-blue-400 tracking-widest">VADER</h1>
+      <p class="text-gray-500 text-sm mt-1">SMC Algorithmic Trading Bot</p>
+    </div>
+
+    <!-- Toggle -->
+    <div class="flex mb-6 border-b border-gray-800">
+      <button class="tab" :class="authTab==='login'?'active':''" @click="authTab='login'">Sign In</button>
+      <button class="tab" :class="authTab==='register'?'active':''" @click="authTab='register'">Create Account</button>
+    </div>
+
+    <!-- Login -->
+    <form x-show="authTab==='login'" @submit.prevent="login()">
+      <div class="mb-4">
+        <label class="block text-xs text-gray-400 mb-1">Username or Email</label>
+        <input class="input" type="text" x-model="loginForm.username" placeholder="you@example.com" required />
+      </div>
+      <div class="mb-6">
+        <label class="block text-xs text-gray-400 mb-1">Password</label>
+        <input class="input" type="password" x-model="loginForm.password" placeholder="••••••••" required />
+      </div>
+      <div x-show="authError" class="text-red-400 text-sm mb-4" x-text="authError"></div>
+      <button class="btn-primary w-full" type="submit" :disabled="loading">
+        <span x-text="loading ? 'Signing in…' : 'Sign In'"></span>
+      </button>
+    </form>
+
+    <!-- Register -->
+    <form x-show="authTab==='register'" @submit.prevent="register()">
+      <div class="mb-4">
+        <label class="block text-xs text-gray-400 mb-1">Username</label>
+        <input class="input" type="text" x-model="regForm.username" placeholder="traderbro" required />
+      </div>
+      <div class="mb-4">
+        <label class="block text-xs text-gray-400 mb-1">Email</label>
+        <input class="input" type="email" x-model="regForm.email" placeholder="you@example.com" required />
+      </div>
+      <div class="mb-6">
+        <label class="block text-xs text-gray-400 mb-1">Password (8+ chars)</label>
+        <input class="input" type="password" x-model="regForm.password" placeholder="••••••••" required />
+      </div>
+      <div x-show="authError" class="text-red-400 text-sm mb-4" x-text="authError"></div>
+      <button class="btn-primary w-full" type="submit" :disabled="loading">
+        <span x-text="loading ? 'Creating…' : 'Create Account'"></span>
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ MAIN APP -->
+<div x-show="token" class="min-h-screen">
+
+  <!-- Header -->
+  <header class="border-b border-gray-800 px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <h1 class="text-xl font-bold text-blue-400 tracking-widest">VADER</h1>
+      <span class="text-gray-600 text-sm">SMC Trading Bot</span>
+    </div>
+    <div class="flex items-center gap-4">
+      <div class="text-right">
+        <div class="text-sm text-gray-400">Equity</div>
+        <div class="font-bold text-white" x-text="status.equity ? '$' + status.equity.toLocaleString('en-US', {minimumFractionDigits:2}) : '—'"></div>
+      </div>
+      <div class="text-right">
+        <div class="text-sm text-gray-400">Daily P&L</div>
+        <div class="font-bold" :class="(status.daily_pnl||0)>=0?'pnl-pos':'pnl-neg'"
+             x-text="status.daily_pnl !== undefined ? (status.daily_pnl>=0?'+':'')+status.daily_pnl.toFixed(2) : '—'"></div>
+      </div>
+      <button class="btn-outline text-sm" @click="logout()">Sign Out</button>
+    </div>
+  </header>
+
+  <!-- Nav -->
+  <nav class="border-b border-gray-800 px-6 flex gap-0">
+    <button class="tab" :class="page==='dashboard'?'active':''" @click="page='dashboard'">Dashboard</button>
+    <button class="tab" :class="page==='trades'?'active':''" @click="page='trades'; loadTrades()">Trades</button>
+    <button class="tab" :class="page==='stats'?'active':''" @click="page='stats'; loadStats()">Stats</button>
+    <button class="tab" :class="page==='settings'?'active':''" @click="page='settings'">Settings</button>
+  </nav>
+
+  <main class="p-6 max-w-7xl mx-auto">
+
+    <!-- ── DASHBOARD ──────────────────────────────────────────────────── -->
+    <div x-show="page==='dashboard'">
+      <!-- Bot Control -->
+      <div class="card p-5 mb-6 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <span :class="status.running ? 'dot-live' : 'dot-off'"></span>
+          <div>
+            <div class="font-bold text-white" x-text="status.running ? 'Bot Running' : 'Bot Stopped'"></div>
+            <div class="text-xs text-gray-500" x-text="status.running ? 'Mode: ' + status.mode.toUpperCase() + ' · ' + (status.symbols||[]).join(', ') : 'Configure keys in Settings, then start'"></div>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <button x-show="!status.running" class="btn-primary" @click="startBot()" :disabled="botLoading">
+            <span x-text="botLoading ? 'Starting…' : '▶ Start Bot'"></span>
+          </button>
+          <button x-show="status.running" class="btn-danger" @click="stopBot()" :disabled="botLoading">
+            <span x-text="botLoading ? 'Stopping…' : '■ Stop Bot'"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats row -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="card p-4">
+          <div class="text-xs text-gray-500 mb-1">Open Positions</div>
+          <div class="text-2xl font-bold text-white" x-text="status.open_positions || 0"></div>
+        </div>
+        <div class="card p-4">
+          <div class="text-xs text-gray-500 mb-1">Symbols Watched</div>
+          <div class="text-2xl font-bold text-white" x-text="(status.symbols||[]).length"></div>
+        </div>
+        <div class="card p-4">
+          <div class="text-xs text-gray-500 mb-1">Daily P&L</div>
+          <div class="text-2xl font-bold" :class="(status.daily_pnl||0)>=0?'pnl-pos':'pnl-neg'"
+               x-text="status.daily_pnl !== undefined ? '$'+(status.daily_pnl>=0?'+':'')+status.daily_pnl.toFixed(2) : '$0.00'"></div>
+        </div>
+        <div class="card p-4">
+          <div class="text-xs text-gray-500 mb-1">Bot Mode</div>
+          <div class="text-2xl font-bold" :class="status.mode==='live'?'text-red-400':'text-green-400'"
+               x-text="(status.mode||'paper').toUpperCase()"></div>
+        </div>
+      </div>
+
+      <!-- Signal Scanner -->
+      <div class="card p-4">
+        <h2 class="text-sm font-bold text-gray-400 mb-3 uppercase tracking-widest">SMC Signal Scanner</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Price</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="sym in (status.symbols||[])" :key="sym">
+              <tr>
+                <td class="font-bold text-white" x-text="sym"></td>
+                <td class="text-gray-300" x-text="status.prices && status.prices[sym] ? '$' + status.prices[sym].toFixed(4) : '—'"></td>
+                <td class="text-gray-400 text-xs" x-text="(status.signals||{})[sym] || 'scanning…'"></td>
+              </tr>
+            </template>
+            <tr x-show="!status.running">
+              <td colspan="3" class="text-gray-600 text-center py-4">Start the bot to begin scanning</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── TRADES ──────────────────────────────────────────────────────── -->
+    <div x-show="page==='trades'">
+      <div class="card p-4">
+        <h2 class="text-sm font-bold text-gray-400 mb-3 uppercase tracking-widest">Trade History</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th><th>Dir</th><th>Shares</th><th>Entry</th>
+              <th>Stop</th><th>TP2</th><th>Exit</th><th>P&L</th>
+              <th>Status</th><th>Opened</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="t in trades" :key="t.id">
+              <tr>
+                <td class="font-bold text-white" x-text="t.symbol"></td>
+                <td :class="t.direction==='LONG'?'text-green-400':'text-red-400'" x-text="t.direction==='LONG'?'▲ L':'▼ S'"></td>
+                <td x-text="t.shares"></td>
+                <td x-text="'$'+t.entry_price.toFixed(4)"></td>
+                <td class="text-red-400" x-text="'$'+t.stop_price.toFixed(4)"></td>
+                <td class="text-blue-400" x-text="'$'+t.tp2_price.toFixed(4)"></td>
+                <td x-text="t.exit_price ? '$'+t.exit_price.toFixed(4) : '—'"></td>
+                <td :class="(t.pnl||0)>=0?'pnl-pos':'pnl-neg'"
+                    x-text="t.pnl !== null ? (t.pnl>=0?'+':'')+t.pnl.toFixed(2) : '—'"></td>
+                <td>
+                  <span :class="t.status==='closed'?(t.pnl>=0?'badge-green':'badge-red'):'badge-gray'"
+                        x-text="t.status"></span>
+                </td>
+                <td class="text-gray-500 text-xs" x-text="t.opened_at.substring(0,16).replace('T',' ')"></td>
+              </tr>
+            </template>
+            <tr x-show="trades.length===0">
+              <td colspan="10" class="text-gray-600 text-center py-6">No trades yet</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── STATS ──────────────────────────────────────────────────────── -->
+    <div x-show="page==='stats'">
+      <div x-show="!stats" class="text-gray-500 text-center py-12">No closed trades yet</div>
+      <div x-show="stats" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="card p-5">
+          <div class="text-xs text-gray-500 mb-1">Total Trades</div>
+          <div class="text-3xl font-bold text-white" x-text="stats?.total_trades"></div>
+        </div>
+        <div class="card p-5">
+          <div class="text-xs text-gray-500 mb-1">Win Rate</div>
+          <div class="text-3xl font-bold" :class="(stats?.win_rate_pct||0)>=50?'pnl-pos':'pnl-neg'"
+               x-text="(stats?.win_rate_pct||0)+'%'"></div>
+        </div>
+        <div class="card p-5">
+          <div class="text-xs text-gray-500 mb-1">Total P&L</div>
+          <div class="text-3xl font-bold" :class="(stats?.total_pnl||0)>=0?'pnl-pos':'pnl-neg'"
+               x-text="'$'+(stats?.total_pnl||0).toFixed(2)"></div>
+        </div>
+        <div class="card p-5">
+          <div class="text-xs text-gray-500 mb-1">Profit Factor</div>
+          <div class="text-3xl font-bold" :class="(stats?.profit_factor||0)>=1?'pnl-pos':'pnl-neg'"
+               x-text="(stats?.profit_factor||0).toFixed(2)"></div>
+        </div>
+        <div class="card p-5">
+          <div class="text-xs text-gray-500 mb-1">Avg Win</div>
+          <div class="text-2xl font-bold pnl-pos" x-text="'$'+(stats?.avg_win||0).toFixed(2)"></div>
+        </div>
+        <div class="card p-5">
+          <div class="text-xs text-gray-500 mb-1">Avg Loss</div>
+          <div class="text-2xl font-bold pnl-neg" x-text="'$'+(stats?.avg_loss||0).toFixed(2)"></div>
+        </div>
+        <div class="card p-5">
+          <div class="text-xs text-gray-500 mb-1">Best Trade</div>
+          <div class="text-2xl font-bold pnl-pos" x-text="'$'+(stats?.best_trade||0).toFixed(2)"></div>
+        </div>
+        <div class="card p-5">
+          <div class="text-xs text-gray-500 mb-1">Worst Trade</div>
+          <div class="text-2xl font-bold pnl-neg" x-text="'$'+(stats?.worst_trade||0).toFixed(2)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS ───────────────────────────────────────────────────── -->
+    <div x-show="page==='settings'">
+      <div class="card p-6 max-w-lg">
+        <h2 class="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">Connect Exchange — Alpaca Markets</h2>
+        <p class="text-gray-500 text-sm mb-5">
+          Get your API keys at <span class="text-blue-400">alpaca.markets</span>. Use paper keys to test safely.
+        </p>
+        <form @submit.prevent="saveKeys()">
+          <div class="mb-4">
+            <label class="block text-xs text-gray-400 mb-1">Alpaca API Key</label>
+            <input class="input" type="text" x-model="keysForm.alpaca_key" placeholder="PKXXXXXXXXXXXXXX" required />
+          </div>
+          <div class="mb-4">
+            <label class="block text-xs text-gray-400 mb-1">Alpaca Secret Key</label>
+            <input class="input" type="password" x-model="keysForm.alpaca_secret" placeholder="••••••••••••••••••••••••••••••••••••••••" required />
+          </div>
+          <div class="mb-6 flex items-center gap-3">
+            <label class="text-sm text-gray-300">
+              <input type="checkbox" x-model="keysForm.alpaca_paper" class="mr-2" />
+              Paper Trading Mode <span class="text-gray-500">(recommended until profitable)</span>
+            </label>
+          </div>
+          <div x-show="keysForm.alpaca_paper===false" class="mb-4 bg-red-950 border border-red-800 rounded p-3 text-red-300 text-sm">
+            ⚠ Live mode enabled — real money will be traded. Only use after thorough paper testing.
+          </div>
+          <div x-show="settingsMsg" class="mb-4 text-green-400 text-sm" x-text="settingsMsg"></div>
+          <div x-show="settingsErr" class="mb-4 text-red-400 text-sm" x-text="settingsErr"></div>
+          <button class="btn-primary" type="submit" :disabled="loading">
+            <span x-text="loading ? 'Saving…' : 'Save Keys'"></span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const API = '';  // same origin
+
+function app() {
+  return {
+    token: localStorage.getItem('vader_token') || '',
+    authTab: 'login',
+    page: 'dashboard',
+    loading: false,
+    botLoading: false,
+    authError: '',
+    settingsMsg: '',
+    settingsErr: '',
+    loginForm: { username: '', password: '' },
+    regForm: { username: '', email: '', password: '' },
+    keysForm: { alpaca_key: '', alpaca_secret: '', alpaca_paper: true },
+    status: {},
+    trades: [],
+    stats: null,
+    pollInterval: null,
+
+    async init() {
+      if (this.token) await this.poll();
+      if (this.token) this.pollInterval = setInterval(() => this.poll(), 3000);
+    },
+
+    async api(path, method='GET', body=null) {
+      const opts = {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.token ? { Authorization: 'Bearer ' + this.token } : {}),
+        },
+      };
+      if (body) opts.body = JSON.stringify(body);
+      const r = await fetch(API + path, opts);
+      if (r.status === 401) { this.logout(); return null; }
+      return r.ok ? r.json() : Promise.reject(await r.json());
+    },
+
+    async apiForm(path, formData) {
+      const r = await fetch(API + path, {
+        method: 'POST',
+        body: new URLSearchParams(formData),
+      });
+      return r.ok ? r.json() : Promise.reject(await r.json());
+    },
+
+    async login() {
+      this.authError = ''; this.loading = true;
+      try {
+        const d = await this.apiForm('/api/auth/login', {
+          username: this.loginForm.username, password: this.loginForm.password,
+        });
+        this.token = d.access_token;
+        localStorage.setItem('vader_token', this.token);
+        this.pollInterval = setInterval(() => this.poll(), 3000);
+        await this.poll();
+      } catch(e) {
+        this.authError = e.detail || 'Login failed';
+      } finally { this.loading = false; }
+    },
+
+    async register() {
+      this.authError = ''; this.loading = true;
+      try {
+        const d = await this.api('/api/auth/register', 'POST', this.regForm);
+        this.token = d.access_token;
+        localStorage.setItem('vader_token', this.token);
+        this.pollInterval = setInterval(() => this.poll(), 3000);
+        await this.poll();
+      } catch(e) {
+        this.authError = e.detail || 'Registration failed';
+      } finally { this.loading = false; }
+    },
+
+    logout() {
+      clearInterval(this.pollInterval);
+      this.token = ''; this.status = {};
+      localStorage.removeItem('vader_token');
+    },
+
+    async poll() {
+      try {
+        const s = await this.api('/api/bot/status');
+        if (s) this.status = s;
+      } catch {}
+    },
+
+    async startBot() {
+      this.botLoading = true;
+      try {
+        await this.api('/api/bot/start', 'POST', {});
+        await this.poll();
+      } catch(e) {
+        alert(e.detail || 'Failed to start bot');
+      } finally { this.botLoading = false; }
+    },
+
+    async stopBot() {
+      this.botLoading = true;
+      try {
+        await this.api('/api/bot/stop', 'POST');
+        await this.poll();
+      } catch(e) {
+        alert(e.detail || 'Failed to stop bot');
+      } finally { this.botLoading = false; }
+    },
+
+    async loadTrades() {
+      const d = await this.api('/api/bot/trades?limit=100');
+      if (d) this.trades = d;
+    },
+
+    async loadStats() {
+      const d = await this.api('/api/bot/stats');
+      if (d && d.total_trades) this.stats = d;
+    },
+
+    async saveKeys() {
+      this.settingsMsg = ''; this.settingsErr = ''; this.loading = true;
+      try {
+        const d = await this.api('/api/auth/keys', 'POST', this.keysForm);
+        this.settingsMsg = d.message;
+      } catch(e) {
+        this.settingsErr = e.detail || 'Failed to save keys';
+      } finally { this.loading = false; }
+    },
+  };
+}
+</script>
+</body>
+</html>

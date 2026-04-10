@@ -1,0 +1,71 @@
+# ─────────────────────────────────────────────
+#  VADER — SMC Live Trading Bot · Settings
+# ─────────────────────────────────────────────
+
+bot:
+  name: VADER
+  version: "1.0.0"
+  mode: paper            # paper | live
+  log_level: INFO
+
+universe:
+  # Symbols to trade — add/remove freely
+  symbols:
+    - SPY
+    - QQQ
+    - NVDA
+    - TSLA
+    - AAPL
+  # Primary execution timeframe
+  timeframe: "5Min"
+  # Higher timeframe for trend bias
+  htf_timeframe: "1Hour"
+  # Candles to load on startup
+  warmup_bars: 500
+
+smc:
+  swing_length: 10        # swing_highs_lows lookback
+  fvg_join_consecutive: false
+  ob_close_mitigation: false
+  liquidity_range_pct: 0.005
+  # Minimum FVG size as % of price to qualify
+  min_fvg_size_pct: 0.001
+  # Order block must have at least this OB strength %
+  min_ob_strength: 30.0
+
+strategy:
+  # Session filter — only trade during NY open kill zone
+  session: "New York kill zone"
+  # Require HTF trend alignment before entry
+  htf_trend_filter: true
+  # CHoCH required before FVG/OB entry
+  require_choch: true
+  # Maximum entries per symbol per day
+  max_trades_per_day: 3
+  # R-multiple targets
+  tp1_r: 1.5
+  tp2_r: 3.0
+  # Scale out: take tp1_size % at TP1, rest at TP2
+  tp1_size: 0.5
+  # Trail stop to breakeven after TP1
+  be_after_tp1: true
+  # Minimum risk:reward to take a trade
+  min_rr: 1.5
+
+risk:
+  account_risk_pct: 0.01     # 1% per trade
+  max_positions: 5
+  max_daily_loss_pct: 0.03   # halt at -3% daily
+  max_position_pct: 0.20     # no single position > 20% of equity
+  # Slippage buffer added to stops
+  stop_buffer_pct: 0.002
+
+execution:
+  # Seconds to wait for fill before cancelling
+  fill_timeout: 30
+  # Use limit orders for entry (vs market)
+  limit_entry: true
+  # Limit entry offset from signal price (%)
+  limit_offset_pct: 0.001
+  # Retry unfilled limit orders as market after timeout
+  fallback_to_market: false
