@@ -1,308 +1,619 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" x-data="app()" x-init="init()" :class="darkMode ? 'dark' : ''" x-cloak>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VADER — SMC Trading Bot</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            vader: { red: '#e53e3e', darkred: '#c53030', crimson: '#9b2335' },
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
   <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
   <style>
     [x-cloak] { display: none !important; }
-    body { background: #0a0f1a; color: #e2e8f0; font-family: 'Courier New', monospace; }
-    .card { background: #111827; border: 1px solid #1f2937; border-radius: 8px; }
-    .btn-primary { background: #2563eb; color: #fff; border-radius: 6px; padding: 8px 20px; font-weight: 600; transition: background 0.2s; }
-    .btn-primary:hover { background: #1d4ed8; }
-    .btn-danger { background: #dc2626; color: #fff; border-radius: 6px; padding: 8px 20px; font-weight: 600; transition: background 0.2s; }
-    .btn-danger:hover { background: #b91c1c; }
-    .btn-outline { border: 1px solid #374151; color: #9ca3af; border-radius: 6px; padding: 8px 20px; font-weight: 600; transition: all 0.2s; }
-    .btn-outline:hover { border-color: #6b7280; color: #e5e7eb; }
-    .input { background: #1f2937; border: 1px solid #374151; border-radius: 6px; padding: 10px 14px; width: 100%; color: #e2e8f0; outline: none; }
-    .input:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,0.2); }
-    .badge-green { background: #052e16; color: #4ade80; border: 1px solid #166534; padding: 2px 10px; border-radius: 999px; font-size: 12px; }
-    .badge-red { background: #450a0a; color: #f87171; border: 1px solid #991b1b; padding: 2px 10px; border-radius: 999px; font-size: 12px; }
-    .badge-gray { background: #1f2937; color: #6b7280; border: 1px solid #374151; padding: 2px 10px; border-radius: 999px; font-size: 12px; }
-    .pnl-pos { color: #4ade80; }
-    .pnl-neg { color: #f87171; }
-    .dot-live { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; display: inline-block; animation: pulse 1.5s infinite; }
-    .dot-off  { width: 8px; height: 8px; background: #6b7280; border-radius: 50%; display: inline-block; }
-    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
-    table { width: 100%; border-collapse: collapse; }
-    th { color: #6b7280; font-size: 11px; text-transform: uppercase; padding: 8px 12px; text-align: left; border-bottom: 1px solid #1f2937; }
-    td { padding: 10px 12px; border-bottom: 1px solid #111827; font-size: 13px; }
-    tr:hover td { background: #1a2333; }
-    .tab { padding: 8px 16px; border-bottom: 2px solid transparent; cursor: pointer; color: #6b7280; font-size: 14px; }
-    .tab.active { border-bottom-color: #2563eb; color: #60a5fa; }
+
+    /* ── DARK MODE (black + red) ─────────────────────────────────────── */
+    .dark body, body.dark { background:#000; color:#f0f0f0; }
+    .dark .surface   { background:#0d0d0d; border-color:#1a1a1a; }
+    .dark .surface-2 { background:#111; border-color:#222; }
+    .dark .surface-3 { background:#1a1a1a; border-color:#2a2a2a; }
+    .dark .txt-primary   { color:#ffffff; }
+    .dark .txt-secondary { color:#999; }
+    .dark .txt-muted     { color:#555; }
+    .dark .bdr           { border-color:#1e1e1e; }
+    .dark .bdr-2         { border-color:#2a2a2a; }
+    .dark .input-cls {
+      background:#111; border:1px solid #2a2a2a; color:#f0f0f0;
+      border-radius:8px; padding:10px 14px; width:100%; outline:none;
+      font-family: Inter, sans-serif;
+    }
+    .dark .input-cls:focus { border-color:#e53e3e; box-shadow:0 0 0 3px rgba(229,62,62,0.15); }
+    .dark .nav-tab        { color:#555; border-bottom:2px solid transparent; padding:12px 18px; font-size:13px; font-weight:500; cursor:pointer; transition:all 0.2s; }
+    .dark .nav-tab:hover  { color:#999; }
+    .dark .nav-tab.active { color:#fff; border-bottom-color:#e53e3e; }
+    .dark .btn-red  { background:#e53e3e; color:#fff; border-radius:8px; padding:9px 22px; font-weight:600; font-size:13px; transition:all 0.2s; border:none; }
+    .dark .btn-red:hover  { background:#c53030; }
+    .dark .btn-ghost { background:transparent; color:#666; border:1px solid #2a2a2a; border-radius:8px; padding:9px 22px; font-weight:500; font-size:13px; transition:all 0.2s; }
+    .dark .btn-ghost:hover { color:#aaa; border-color:#444; }
+    .dark .btn-stop { background:#1a1a1a; color:#e53e3e; border:1px solid #e53e3e; border-radius:8px; padding:9px 22px; font-weight:600; font-size:13px; }
+    .dark .btn-stop:hover { background:#e53e3e; color:#fff; }
+    .dark tr:hover td { background:#111; }
+    .dark th { color:#444; border-bottom:1px solid #1a1a1a; }
+    .dark td { border-bottom:1px solid #0d0d0d; color:#ccc; }
+    .dark .badge-win  { background:#0a1a0a; color:#4ade80; border:1px solid #16a34a33; padding:2px 10px; border-radius:999px; font-size:11px; font-weight:600; }
+    .dark .badge-loss { background:#1a0a0a; color:#f87171; border:1px solid #dc262633; padding:2px 10px; border-radius:999px; font-size:11px; font-weight:600; }
+    .dark .badge-open { background:#111; color:#888; border:1px solid #2a2a2a; padding:2px 10px; border-radius:999px; font-size:11px; font-weight:600; }
+    .dark .settings-panel { background:#0d0d0d; border:1px solid #1e1e1e; border-radius:12px; box-shadow:0 24px 64px rgba(0,0,0,0.8); }
+    .dark .divider { border-color:#1a1a1a; }
+
+    /* ── LIGHT MODE (white + red + black) ───────────────────────────── */
+    body { background:#f5f5f5; color:#111; font-family: Inter, sans-serif; }
+    .surface   { background:#fff; border:1px solid #e5e5e5; border-radius:12px; }
+    .surface-2 { background:#fafafa; border:1px solid #ececec; border-radius:12px; }
+    .surface-3 { background:#f0f0f0; border:1px solid #e0e0e0; border-radius:12px; }
+    .txt-primary   { color:#000; }
+    .txt-secondary { color:#444; }
+    .txt-muted     { color:#999; }
+    .bdr   { border-color:#e5e5e5; }
+    .bdr-2 { border-color:#d0d0d0; }
+    .input-cls {
+      background:#fff; border:1px solid #d0d0d0; color:#111;
+      border-radius:8px; padding:10px 14px; width:100%; outline:none;
+      font-family: Inter, sans-serif;
+    }
+    .input-cls:focus { border-color:#e53e3e; box-shadow:0 0 0 3px rgba(229,62,62,0.1); }
+    .nav-tab        { color:#999; border-bottom:2px solid transparent; padding:12px 18px; font-size:13px; font-weight:500; cursor:pointer; transition:all 0.2s; }
+    .nav-tab:hover  { color:#444; }
+    .nav-tab.active { color:#000; border-bottom-color:#e53e3e; }
+    .btn-red  { background:#e53e3e; color:#fff; border-radius:8px; padding:9px 22px; font-weight:600; font-size:13px; transition:all 0.2s; border:none; cursor:pointer; }
+    .btn-red:hover  { background:#c53030; }
+    .btn-ghost { background:transparent; color:#666; border:1px solid #d0d0d0; border-radius:8px; padding:9px 22px; font-weight:500; font-size:13px; transition:all 0.2s; cursor:pointer; }
+    .btn-ghost:hover { color:#000; border-color:#999; }
+    .btn-stop { background:#fff; color:#e53e3e; border:1px solid #e53e3e; border-radius:8px; padding:9px 22px; font-weight:600; font-size:13px; cursor:pointer; transition:all 0.2s; }
+    .btn-stop:hover { background:#e53e3e; color:#fff; }
+    table { width:100%; border-collapse:collapse; }
+    th { color:#999; font-size:11px; text-transform:uppercase; padding:10px 14px; text-align:left; border-bottom:1px solid #ececec; font-weight:600; letter-spacing:0.05em; }
+    td { padding:12px 14px; border-bottom:1px solid #f0f0f0; font-size:13px; }
+    tr:hover td { background:#fafafa; }
+    .badge-win  { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; padding:2px 10px; border-radius:999px; font-size:11px; font-weight:600; }
+    .badge-loss { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; padding:2px 10px; border-radius:999px; font-size:11px; font-weight:600; }
+    .badge-open { background:#f5f5f5; color:#666; border:1px solid #e0e0e0; padding:2px 10px; border-radius:999px; font-size:11px; font-weight:600; }
+    .settings-panel { background:#fff; border:1px solid #e5e5e5; border-radius:12px; box-shadow:0 24px 64px rgba(0,0,0,0.12); }
+    .divider { border-color:#ececec; }
+
+    /* ── SHARED ──────────────────────────────────────────────────────── */
+    .pnl-pos { color:#16a34a; }
+    .pnl-neg { color:#e53e3e; }
+    .dark .pnl-pos { color:#4ade80; }
+    .dark .pnl-neg { color:#f87171; }
+    .dot-live { width:8px; height:8px; background:#22c55e; border-radius:50%; display:inline-block; animation:pulse 1.5s infinite; flex-shrink:0; }
+    .dot-off  { width:8px; height:8px; background:#888; border-radius:50%; display:inline-block; flex-shrink:0; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)} }
+
+    /* Avatar initials */
+    .avatar { width:34px; height:34px; border-radius:50%; background:#e53e3e; color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; cursor:pointer; flex-shrink:0; }
+
+    /* Toggle switch */
+    .toggle { position:relative; width:40px; height:22px; display:inline-block; }
+    .toggle input { opacity:0; width:0; height:0; }
+    .toggle-slider { position:absolute; inset:0; background:#ccc; border-radius:22px; cursor:pointer; transition:.3s; }
+    .toggle-slider:before { content:''; position:absolute; height:16px; width:16px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.3s; }
+    input:checked + .toggle-slider { background:#e53e3e; }
+    input:checked + .toggle-slider:before { transform:translateX(18px); }
+
+    /* Metric card accent line */
+    .metric-card { border-radius:12px; padding:20px; position:relative; overflow:hidden; }
+    .metric-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:#e53e3e; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:#e53e3e44; border-radius:99px; }
   </style>
 </head>
-<body x-data="app()" x-init="init()" x-cloak>
+<body :class="darkMode ? 'dark bg-black text-white' : 'bg-gray-100 text-black'">
 
-<!-- ═══════════════════════════════════════════════════════ AUTH SCREENS -->
+<!-- ══════════════════════════════════════════ AUTH SCREEN -->
 <div x-show="!token" class="min-h-screen flex items-center justify-center px-4">
-  <div class="card p-8 w-full max-w-md">
+  <div class="surface w-full max-w-md p-8 rounded-2xl">
 
-    <!-- Logo -->
     <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold text-blue-400 tracking-widest">VADER</h1>
-      <p class="text-gray-500 text-sm mt-1">SMC Algorithmic Trading Bot</p>
+      <div class="inline-flex items-center gap-2 mb-3">
+        <div style="width:10px;height:32px;background:#e53e3e;border-radius:3px;"></div>
+        <h1 class="text-3xl font-black tracking-[0.2em] txt-primary">VADER</h1>
+      </div>
+      <p class="txt-muted text-sm">SMC Algorithmic Trading Bot</p>
     </div>
 
-    <!-- Toggle -->
-    <div class="flex mb-6 border-b border-gray-800">
-      <button class="tab" :class="authTab==='login'?'active':''" @click="authTab='login'">Sign In</button>
-      <button class="tab" :class="authTab==='register'?'active':''" @click="authTab='register'">Create Account</button>
+    <div class="flex mb-6 border-b bdr">
+      <button class="nav-tab" :class="authTab==='login'?'active':''" @click="authTab='login'">Sign In</button>
+      <button class="nav-tab" :class="authTab==='register'?'active':''" @click="authTab='register'">Create Account</button>
     </div>
 
-    <!-- Login -->
     <form x-show="authTab==='login'" @submit.prevent="login()">
       <div class="mb-4">
-        <label class="block text-xs text-gray-400 mb-1">Username or Email</label>
-        <input class="input" type="text" x-model="loginForm.username" placeholder="you@example.com" required />
+        <label class="block text-xs txt-muted mb-1.5 font-medium uppercase tracking-wider">Username or Email</label>
+        <input class="input-cls" type="text" x-model="loginForm.username" placeholder="you@example.com" required />
       </div>
-      <div class="mb-6">
-        <label class="block text-xs text-gray-400 mb-1">Password</label>
-        <input class="input" type="password" x-model="loginForm.password" placeholder="••••••••" required />
+      <div class="mb-5">
+        <label class="block text-xs txt-muted mb-1.5 font-medium uppercase tracking-wider">Password</label>
+        <input class="input-cls" type="password" x-model="loginForm.password" placeholder="••••••••" required />
       </div>
-      <div x-show="authError" class="text-red-400 text-sm mb-4" x-text="authError"></div>
-      <button class="btn-primary w-full" type="submit" :disabled="loading">
+      <div x-show="authError" class="text-red-500 text-sm mb-4 p-3 rounded-lg" style="background:rgba(229,62,62,0.08);border:1px solid rgba(229,62,62,0.2)" x-text="authError"></div>
+      <button class="btn-red w-full" type="submit" :disabled="loading">
         <span x-text="loading ? 'Signing in…' : 'Sign In'"></span>
       </button>
     </form>
 
-    <!-- Register -->
     <form x-show="authTab==='register'" @submit.prevent="register()">
       <div class="mb-4">
-        <label class="block text-xs text-gray-400 mb-1">Username</label>
-        <input class="input" type="text" x-model="regForm.username" placeholder="traderbro" required />
+        <label class="block text-xs txt-muted mb-1.5 font-medium uppercase tracking-wider">Username</label>
+        <input class="input-cls" type="text" x-model="regForm.username" placeholder="tradername" required />
       </div>
       <div class="mb-4">
-        <label class="block text-xs text-gray-400 mb-1">Email</label>
-        <input class="input" type="email" x-model="regForm.email" placeholder="you@example.com" required />
+        <label class="block text-xs txt-muted mb-1.5 font-medium uppercase tracking-wider">Email</label>
+        <input class="input-cls" type="email" x-model="regForm.email" placeholder="you@example.com" required />
       </div>
-      <div class="mb-6">
-        <label class="block text-xs text-gray-400 mb-1">Password (8+ chars)</label>
-        <input class="input" type="password" x-model="regForm.password" placeholder="••••••••" required />
+      <div class="mb-5">
+        <label class="block text-xs txt-muted mb-1.5 font-medium uppercase tracking-wider">Password (8+ chars)</label>
+        <input class="input-cls" type="password" x-model="regForm.password" placeholder="••••••••" required />
       </div>
-      <div x-show="authError" class="text-red-400 text-sm mb-4" x-text="authError"></div>
-      <button class="btn-primary w-full" type="submit" :disabled="loading">
+      <div x-show="authError" class="text-red-500 text-sm mb-4 p-3 rounded-lg" style="background:rgba(229,62,62,0.08);border:1px solid rgba(229,62,62,0.2)" x-text="authError"></div>
+      <button class="btn-red w-full" type="submit" :disabled="loading">
         <span x-text="loading ? 'Creating…' : 'Create Account'"></span>
       </button>
     </form>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════ MAIN APP -->
-<div x-show="token" class="min-h-screen">
+<!-- ══════════════════════════════════════════ MAIN APP -->
+<div x-show="token" class="min-h-screen flex flex-col">
 
-  <!-- Header -->
-  <header class="border-b border-gray-800 px-6 py-3 flex items-center justify-between">
-    <div class="flex items-center gap-4">
-      <h1 class="text-xl font-bold text-blue-400 tracking-widest">VADER</h1>
-      <span class="text-gray-600 text-sm">SMC Trading Bot</span>
+  <!-- HEADER -->
+  <header class="surface border-b bdr px-6 py-0 flex items-center justify-between" style="height:60px;border-radius:0;">
+    <!-- Left: Logo -->
+    <div class="flex items-center gap-3">
+      <div style="width:6px;height:28px;background:#e53e3e;border-radius:2px;"></div>
+      <span class="text-xl font-black tracking-[0.18em] txt-primary">VADER</span>
+      <span class="txt-muted text-xs font-medium hidden sm:block" style="letter-spacing:0.05em;">SMC TRADING BOT</span>
     </div>
-    <div class="flex items-center gap-4">
-      <div class="text-right">
-        <div class="text-sm text-gray-400">Equity</div>
-        <div class="font-bold text-white" x-text="status.equity ? '$' + status.equity.toLocaleString('en-US', {minimumFractionDigits:2}) : '—'"></div>
+
+    <!-- Center: Equity + P&L (clickable → Stats) -->
+    <div class="hidden md:flex items-center gap-1">
+      <button @click="page='stats'; loadStats()"
+        class="flex items-center gap-6 px-5 py-2 rounded-xl transition-all hover:opacity-80"
+        :class="darkMode ? 'hover:bg-white/5' : 'hover:bg-black/5'"
+        title="Click to view performance stats">
+        <div class="text-center">
+          <div class="text-xs txt-muted font-medium uppercase tracking-wider mb-0.5">Account Equity</div>
+          <div class="text-base font-bold font-mono txt-primary"
+               x-text="status.equity ? '$' + Number(status.equity).toLocaleString('en-US',{minimumFractionDigits:2}) : '$—'"></div>
+        </div>
+        <div class="w-px h-8 bdr-2" style="border-left:1px solid;"></div>
+        <div class="text-center">
+          <div class="text-xs txt-muted font-medium uppercase tracking-wider mb-0.5">Daily P&L</div>
+          <div class="text-base font-bold font-mono"
+               :class="(status.daily_pnl||0)>=0 ? 'pnl-pos' : 'pnl-neg'"
+               x-text="status.daily_pnl !== undefined ? ((status.daily_pnl>=0?'+':'')+'$'+Math.abs(status.daily_pnl).toFixed(2)) : '$—'"></div>
+        </div>
+        <div class="w-px h-8 bdr-2" style="border-left:1px solid;"></div>
+        <div class="text-center">
+          <div class="text-xs txt-muted font-medium uppercase tracking-wider mb-0.5">Mode</div>
+          <div class="text-sm font-bold"
+               :class="status.mode==='live' ? 'text-red-500' : 'text-green-500'"
+               x-text="(status.mode||'PAPER').toUpperCase()"></div>
+        </div>
+      </button>
+    </div>
+
+    <!-- Right: Settings avatar dropdown -->
+    <div class="flex items-center gap-3 relative">
+      <!-- Bot status pill -->
+      <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full surface-3 text-xs font-medium txt-secondary">
+        <span :class="status.running ? 'dot-live' : 'dot-off'"></span>
+        <span x-text="status.running ? 'Live' : 'Idle'"></span>
       </div>
-      <div class="text-right">
-        <div class="text-sm text-gray-400">Daily P&L</div>
-        <div class="font-bold" :class="(status.daily_pnl||0)>=0?'pnl-pos':'pnl-neg'"
-             x-text="status.daily_pnl !== undefined ? (status.daily_pnl>=0?'+':'')+status.daily_pnl.toFixed(2) : '—'"></div>
+
+      <!-- Avatar / Settings trigger -->
+      <div class="relative" x-data="{open:false}" @click.outside="open=false">
+        <button @click="open=!open" class="avatar" :title="profile.username || 'Settings'">
+          <span x-text="(profile.username||'U').slice(0,1).toUpperCase()"></span>
+        </button>
+
+        <!-- Dropdown panel -->
+        <div x-show="open" x-transition:enter="transition ease-out duration-150"
+          x-transition:enter-start="opacity-0 scale-95 translate-y-1"
+          x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+          class="settings-panel absolute right-0 mt-2 w-80 z-50" style="top:100%;">
+
+          <!-- Profile header -->
+          <div class="p-5 border-b divider">
+            <div class="flex items-center gap-3">
+              <div class="avatar" style="width:44px;height:44px;font-size:16px;">
+                <span x-text="(profile.username||'U').slice(0,1).toUpperCase()"></span>
+              </div>
+              <div>
+                <div class="font-bold txt-primary text-sm" x-text="profile.username || '—'"></div>
+                <div class="txt-muted text-xs" x-text="profile.email || '—'"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Settings items -->
+          <div class="p-3">
+
+            <!-- Dark / Light toggle -->
+            <div class="flex items-center justify-between px-3 py-3 rounded-lg transition-colors"
+                 :class="darkMode ? 'hover:bg-white/5' : 'hover:bg-black/5'">
+              <div class="flex items-center gap-3">
+                <span class="text-lg" x-text="darkMode ? '🌙' : '☀️'"></span>
+                <div>
+                  <div class="text-sm font-medium txt-primary" x-text="darkMode ? 'Dark Mode' : 'Light Mode'"></div>
+                  <div class="text-xs txt-muted">Toggle appearance</div>
+                </div>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" x-model="darkMode" @change="saveDarkMode()" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <!-- Go to Exchange Settings -->
+            <button @click="page='settings'; open=false"
+              class="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors"
+              :class="darkMode ? 'hover:bg-white/5' : 'hover:bg-black/5'">
+              <span class="text-lg">🔑</span>
+              <div>
+                <div class="text-sm font-medium txt-primary">Exchange Keys</div>
+                <div class="text-xs txt-muted" x-text="profile.has_alpaca_keys ? 'Connected ✓' : 'Not connected'"></div>
+              </div>
+            </button>
+
+            <!-- Bot Mode indicator -->
+            <button @click="page='dashboard'; open=false"
+              class="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors"
+              :class="darkMode ? 'hover:bg-white/5' : 'hover:bg-black/5'">
+              <span class="text-lg">🤖</span>
+              <div>
+                <div class="text-sm font-medium txt-primary">Bot Status</div>
+                <div class="text-xs" :class="status.running ? 'text-green-500' : 'text-red-500'"
+                     x-text="status.running ? 'Running · ' + (status.mode||'paper').toUpperCase() : 'Stopped'"></div>
+              </div>
+            </button>
+
+            <!-- Performance -->
+            <button @click="page='stats'; loadStats(); open=false"
+              class="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors"
+              :class="darkMode ? 'hover:bg-white/5' : 'hover:bg-black/5'">
+              <span class="text-lg">📊</span>
+              <div>
+                <div class="text-sm font-medium txt-primary">Performance</div>
+                <div class="text-xs txt-muted">Win rate, P&L, stats</div>
+              </div>
+            </button>
+
+          </div>
+
+          <!-- Sign out -->
+          <div class="p-3 border-t divider">
+            <button @click="logout(); open=false"
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-red-500 transition-colors hover:bg-red-500/10 text-sm font-medium">
+              <span>→</span> Sign Out
+            </button>
+          </div>
+        </div>
       </div>
-      <button class="btn-outline text-sm" @click="logout()">Sign Out</button>
     </div>
   </header>
 
-  <!-- Nav -->
-  <nav class="border-b border-gray-800 px-6 flex gap-0">
-    <button class="tab" :class="page==='dashboard'?'active':''" @click="page='dashboard'">Dashboard</button>
-    <button class="tab" :class="page==='trades'?'active':''" @click="page='trades'; loadTrades()">Trades</button>
-    <button class="tab" :class="page==='stats'?'active':''" @click="page='stats'; loadStats()">Stats</button>
-    <button class="tab" :class="page==='settings'?'active':''" @click="page='settings'">Settings</button>
+  <!-- NAV TABS -->
+  <nav class="surface border-b bdr px-4 flex gap-0" style="border-radius:0;">
+    <button class="nav-tab" :class="page==='dashboard'?'active':''" @click="page='dashboard'">Dashboard</button>
+    <button class="nav-tab" :class="page==='charts'?'active':''" @click="page='charts'; loadChart()">Charts</button>
+    <button class="nav-tab" :class="page==='trades'?'active':''" @click="page='trades'; loadTrades()">Trades</button>
+    <button class="nav-tab" :class="page==='stats'?'active':''" @click="page='stats'; loadStats()">Stats</button>
+    <button class="nav-tab" :class="page==='settings'?'active':''" @click="page='settings'">Settings</button>
   </nav>
 
-  <main class="p-6 max-w-7xl mx-auto">
+  <main class="flex-1 p-6 max-w-7xl mx-auto w-full">
 
-    <!-- ── DASHBOARD ──────────────────────────────────────────────────── -->
-    <div x-show="page==='dashboard'">
-      <!-- Bot Control -->
-      <div class="card p-5 mb-6 flex items-center justify-between">
+    <!-- ── DASHBOARD ─────────────────────────────────────────────────── -->
+    <div x-show="page==='dashboard'" class="space-y-5">
+
+      <!-- Bot control bar -->
+      <div class="surface p-5 flex items-center justify-between gap-4">
         <div class="flex items-center gap-4">
           <span :class="status.running ? 'dot-live' : 'dot-off'"></span>
           <div>
-            <div class="font-bold text-white" x-text="status.running ? 'Bot Running' : 'Bot Stopped'"></div>
-            <div class="text-xs text-gray-500" x-text="status.running ? 'Mode: ' + status.mode.toUpperCase() + ' · ' + (status.symbols||[]).join(', ') : 'Configure keys in Settings, then start'"></div>
+            <div class="font-bold txt-primary" x-text="status.running ? 'Bot Running' : 'Bot Stopped'"></div>
+            <div class="text-xs txt-muted mt-0.5"
+                 x-text="status.running ? 'Mode: '+status.mode.toUpperCase()+' · Watching: '+(status.symbols||[]).join(', ') : 'Add Alpaca keys in Settings, then start the bot'"></div>
           </div>
         </div>
         <div class="flex gap-3">
-          <button x-show="!status.running" class="btn-primary" @click="startBot()" :disabled="botLoading">
-            <span x-text="botLoading ? 'Starting…' : '▶ Start Bot'"></span>
+          <button x-show="!status.running" class="btn-red" @click="startBot()" :disabled="botLoading">
+            <span x-text="botLoading ? 'Starting…' : '▶  Start Bot'"></span>
           </button>
-          <button x-show="status.running" class="btn-danger" @click="stopBot()" :disabled="botLoading">
-            <span x-text="botLoading ? 'Stopping…' : '■ Stop Bot'"></span>
+          <button x-show="status.running" class="btn-stop" @click="stopBot()" :disabled="botLoading">
+            <span x-text="botLoading ? 'Stopping…' : '■  Stop Bot'"></span>
           </button>
         </div>
       </div>
 
-      <!-- Stats row -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div class="card p-4">
-          <div class="text-xs text-gray-500 mb-1">Open Positions</div>
-          <div class="text-2xl font-bold text-white" x-text="status.open_positions || 0"></div>
+      <!-- Metric cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="metric-card surface">
+          <div class="text-xs txt-muted font-medium uppercase tracking-wider mb-3">Account Equity</div>
+          <div class="text-2xl font-bold font-mono txt-primary"
+               x-text="status.equity ? '$'+Number(status.equity).toLocaleString('en-US',{minimumFractionDigits:2}) : '—'"></div>
+          <div class="text-xs txt-muted mt-1">Total account value</div>
         </div>
-        <div class="card p-4">
-          <div class="text-xs text-gray-500 mb-1">Symbols Watched</div>
-          <div class="text-2xl font-bold text-white" x-text="(status.symbols||[]).length"></div>
+        <div class="metric-card surface">
+          <div class="text-xs txt-muted font-medium uppercase tracking-wider mb-3">Daily P&L</div>
+          <div class="text-2xl font-bold font-mono"
+               :class="(status.daily_pnl||0)>=0?'pnl-pos':'pnl-neg'"
+               x-text="status.daily_pnl !== undefined ? (status.daily_pnl>=0?'+':'')+'$'+Math.abs(status.daily_pnl||0).toFixed(2) : '—'"></div>
+          <div class="text-xs txt-muted mt-1">Today's realised P&L</div>
         </div>
-        <div class="card p-4">
-          <div class="text-xs text-gray-500 mb-1">Daily P&L</div>
-          <div class="text-2xl font-bold" :class="(status.daily_pnl||0)>=0?'pnl-pos':'pnl-neg'"
-               x-text="status.daily_pnl !== undefined ? '$'+(status.daily_pnl>=0?'+':'')+status.daily_pnl.toFixed(2) : '$0.00'"></div>
+        <div class="metric-card surface">
+          <div class="text-xs txt-muted font-medium uppercase tracking-wider mb-3">Open Positions</div>
+          <div class="text-2xl font-bold txt-primary" x-text="status.open_positions || 0"></div>
+          <div class="text-xs txt-muted mt-1" x-text="'Max ' + 5 + ' allowed'"></div>
         </div>
-        <div class="card p-4">
-          <div class="text-xs text-gray-500 mb-1">Bot Mode</div>
-          <div class="text-2xl font-bold" :class="status.mode==='live'?'text-red-400':'text-green-400'"
-               x-text="(status.mode||'paper').toUpperCase()"></div>
+        <div class="metric-card surface">
+          <div class="text-xs txt-muted font-medium uppercase tracking-wider mb-3">Markets</div>
+          <div class="text-2xl font-bold txt-primary" x-text="(status.symbols||[]).length || '—'"></div>
+          <div class="text-xs txt-muted mt-1" x-text="(status.symbols||[]).join(', ') || 'None configured'"></div>
         </div>
       </div>
 
-      <!-- Signal Scanner -->
-      <div class="card p-4">
-        <h2 class="text-sm font-bold text-gray-400 mb-3 uppercase tracking-widest">SMC Signal Scanner</h2>
+      <!-- SMC Scanner -->
+      <div class="surface p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xs font-bold txt-muted uppercase tracking-wider">SMC Signal Scanner</h2>
+          <span class="text-xs txt-muted font-mono" x-text="new Date().toLocaleTimeString()"></span>
+        </div>
         <table>
           <thead>
             <tr>
               <th>Symbol</th>
               <th>Price</th>
-              <th>Status</th>
+              <th>Signal</th>
             </tr>
           </thead>
           <tbody>
             <template x-for="sym in (status.symbols||[])" :key="sym">
               <tr>
-                <td class="font-bold text-white" x-text="sym"></td>
-                <td class="text-gray-300" x-text="status.prices && status.prices[sym] ? '$' + status.prices[sym].toFixed(4) : '—'"></td>
-                <td class="text-gray-400 text-xs" x-text="(status.signals||{})[sym] || 'scanning…'"></td>
+                <td class="font-bold font-mono txt-primary" x-text="sym"></td>
+                <td class="font-mono txt-secondary"
+                    x-text="(status.prices||{})[sym] ? '$'+Number((status.prices||{})[sym]).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4}) : '—'"></td>
+                <td class="text-xs txt-muted" x-text="(status.signals||{})[sym] || 'scanning…'"></td>
               </tr>
             </template>
-            <tr x-show="!status.running">
-              <td colspan="3" class="text-gray-600 text-center py-4">Start the bot to begin scanning</td>
+            <tr x-show="!(status.symbols||[]).length">
+              <td colspan="3" class="text-center txt-muted py-8 text-sm">Start the bot to begin scanning</td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- ── TRADES ──────────────────────────────────────────────────────── -->
+    <!-- ── CHARTS ─────────────────────────────────────────────────────── -->
+    <div x-show="page==='charts'" class="space-y-4">
+      <div class="flex items-center gap-3 flex-wrap">
+        <div class="flex gap-2 flex-wrap">
+          <template x-for="sym in chartSymbols" :key="sym">
+            <button class="px-4 py-1.5 rounded-lg text-sm font-bold border transition-all"
+              :class="chartSymbol===sym
+                ? 'bg-red-600 border-red-600 text-white'
+                : (darkMode ? 'border-white/10 text-gray-500 hover:border-white/20' : 'border-gray-200 text-gray-500 hover:border-gray-400')"
+              @click="chartSymbol=sym; loadChart()" x-text="sym"></button>
+          </template>
+        </div>
+        <div class="h-5 w-px bdr-2" style="border-left:1px solid;"></div>
+        <div class="flex gap-2">
+          <template x-for="tf in chartTimeframes" :key="tf.value">
+            <button class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
+              :class="chartTf===tf.value
+                ? (darkMode ? 'bg-white/10 border-white/20 text-white' : 'bg-black text-white border-black')
+                : (darkMode ? 'border-white/10 text-gray-600 hover:text-gray-400' : 'border-gray-200 text-gray-400 hover:border-gray-400')"
+              @click="chartTf=tf.value; loadChart()" x-text="tf.label"></button>
+          </template>
+        </div>
+        <span class="ml-auto text-xs txt-muted">Powered by TradingView</span>
+      </div>
+
+      <div class="surface overflow-hidden" style="height:600px;padding:0;">
+        <div id="tv-chart-container" style="height:100%;width:100%;"></div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-4">
+        <div class="surface p-4">
+          <div class="text-xs txt-muted font-semibold uppercase tracking-wider mb-2">Active FVGs</div>
+          <div class="text-sm txt-secondary" x-text="chartInfo.fvgs || 'Run bot to detect'"></div>
+        </div>
+        <div class="surface p-4">
+          <div class="text-xs txt-muted font-semibold uppercase tracking-wider mb-2">Order Blocks</div>
+          <div class="text-sm txt-secondary" x-text="chartInfo.obs || 'Run bot to detect'"></div>
+        </div>
+        <div class="surface p-4">
+          <div class="text-xs txt-muted font-semibold uppercase tracking-wider mb-2">Structure</div>
+          <div class="text-sm txt-secondary" x-text="chartInfo.structure || 'Run bot to detect'"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TRADES ─────────────────────────────────────────────────────── -->
     <div x-show="page==='trades'">
-      <div class="card p-4">
-        <h2 class="text-sm font-bold text-gray-400 mb-3 uppercase tracking-widest">Trade History</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Symbol</th><th>Dir</th><th>Shares</th><th>Entry</th>
-              <th>Stop</th><th>TP2</th><th>Exit</th><th>P&L</th>
-              <th>Status</th><th>Opened</th>
-            </tr>
-          </thead>
-          <tbody>
-            <template x-for="t in trades" :key="t.id">
+      <div class="surface p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xs font-bold txt-muted uppercase tracking-wider">Trade History</h2>
+          <span class="text-xs txt-muted" x-text="trades.length + ' trades'"></span>
+        </div>
+        <div class="overflow-x-auto">
+          <table>
+            <thead>
               <tr>
-                <td class="font-bold text-white" x-text="t.symbol"></td>
-                <td :class="t.direction==='LONG'?'text-green-400':'text-red-400'" x-text="t.direction==='LONG'?'▲ L':'▼ S'"></td>
-                <td x-text="t.shares"></td>
-                <td x-text="'$'+t.entry_price.toFixed(4)"></td>
-                <td class="text-red-400" x-text="'$'+t.stop_price.toFixed(4)"></td>
-                <td class="text-blue-400" x-text="'$'+t.tp2_price.toFixed(4)"></td>
-                <td x-text="t.exit_price ? '$'+t.exit_price.toFixed(4) : '—'"></td>
-                <td :class="(t.pnl||0)>=0?'pnl-pos':'pnl-neg'"
-                    x-text="t.pnl !== null ? (t.pnl>=0?'+':'')+t.pnl.toFixed(2) : '—'"></td>
-                <td>
-                  <span :class="t.status==='closed'?(t.pnl>=0?'badge-green':'badge-red'):'badge-gray'"
-                        x-text="t.status"></span>
-                </td>
-                <td class="text-gray-500 text-xs" x-text="t.opened_at.substring(0,16).replace('T',' ')"></td>
+                <th>Symbol</th><th>Dir</th><th>Qty</th><th>Entry</th>
+                <th>Stop</th><th>Target</th><th>Exit</th><th>P&L</th>
+                <th>Status</th><th>Opened</th>
               </tr>
-            </template>
-            <tr x-show="trades.length===0">
-              <td colspan="10" class="text-gray-600 text-center py-6">No trades yet</td>
-            </tr>
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              <template x-for="t in trades" :key="t.id">
+                <tr>
+                  <td class="font-bold font-mono txt-primary" x-text="t.symbol"></td>
+                  <td>
+                    <span :class="t.direction==='LONG' ? 'text-green-500' : 'text-red-500'"
+                          x-text="t.direction==='LONG' ? '▲ Long' : '▼ Short'"></span>
+                  </td>
+                  <td class="font-mono txt-secondary" x-text="t.shares"></td>
+                  <td class="font-mono txt-secondary" x-text="'$'+t.entry_price.toFixed(4)"></td>
+                  <td class="font-mono text-red-500" x-text="'$'+t.stop_price.toFixed(4)"></td>
+                  <td class="font-mono text-green-500" x-text="'$'+t.tp2_price.toFixed(4)"></td>
+                  <td class="font-mono txt-secondary" x-text="t.exit_price ? '$'+t.exit_price.toFixed(4) : '—'"></td>
+                  <td class="font-mono font-bold"
+                      :class="(t.pnl||0)>=0?'pnl-pos':'pnl-neg'"
+                      x-text="t.pnl !== null ? (t.pnl>=0?'+':'')+'$'+Math.abs(t.pnl).toFixed(2) : '—'"></td>
+                  <td>
+                    <span :class="t.status==='closed'?(t.pnl>=0?'badge-win':'badge-loss'):'badge-open'"
+                          x-text="t.status"></span>
+                  </td>
+                  <td class="txt-muted text-xs font-mono" x-text="t.opened_at.substring(0,16).replace('T',' ')"></td>
+                </tr>
+              </template>
+              <tr x-show="trades.length===0">
+                <td colspan="10" class="text-center txt-muted py-10 text-sm">No trades yet — start the bot to begin</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
     <!-- ── STATS ──────────────────────────────────────────────────────── -->
-    <div x-show="page==='stats'">
-      <div x-show="!stats" class="text-gray-500 text-center py-12">No closed trades yet</div>
-      <div x-show="stats" class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="card p-5">
-          <div class="text-xs text-gray-500 mb-1">Total Trades</div>
-          <div class="text-3xl font-bold text-white" x-text="stats?.total_trades"></div>
+    <div x-show="page==='stats'" class="space-y-5">
+      <div x-show="!stats" class="surface p-12 text-center txt-muted">No closed trades yet — run the bot in paper mode first</div>
+      <div x-show="stats">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <div class="metric-card surface">
+            <div class="text-xs txt-muted font-medium uppercase tracking-wider mb-3">Total Trades</div>
+            <div class="text-3xl font-bold txt-primary" x-text="stats?.total_trades||0"></div>
+          </div>
+          <div class="metric-card surface">
+            <div class="text-xs txt-muted font-medium uppercase tracking-wider mb-3">Win Rate</div>
+            <div class="text-3xl font-bold" :class="(stats?.win_rate_pct||0)>=50?'pnl-pos':'pnl-neg'"
+                 x-text="(stats?.win_rate_pct||0)+'%'"></div>
+          </div>
+          <div class="metric-card surface">
+            <div class="text-xs txt-muted font-medium uppercase tracking-wider mb-3">Total P&L</div>
+            <div class="text-3xl font-bold font-mono" :class="(stats?.total_pnl||0)>=0?'pnl-pos':'pnl-neg'"
+                 x-text="'$'+(stats?.total_pnl||0).toFixed(2)"></div>
+          </div>
+          <div class="metric-card surface">
+            <div class="text-xs txt-muted font-medium uppercase tracking-wider mb-3">Profit Factor</div>
+            <div class="text-3xl font-bold" :class="(stats?.profit_factor||0)>=1?'pnl-pos':'pnl-neg'"
+                 x-text="(stats?.profit_factor||0).toFixed(2)"></div>
+          </div>
         </div>
-        <div class="card p-5">
-          <div class="text-xs text-gray-500 mb-1">Win Rate</div>
-          <div class="text-3xl font-bold" :class="(stats?.win_rate_pct||0)>=50?'pnl-pos':'pnl-neg'"
-               x-text="(stats?.win_rate_pct||0)+'%'"></div>
-        </div>
-        <div class="card p-5">
-          <div class="text-xs text-gray-500 mb-1">Total P&L</div>
-          <div class="text-3xl font-bold" :class="(stats?.total_pnl||0)>=0?'pnl-pos':'pnl-neg'"
-               x-text="'$'+(stats?.total_pnl||0).toFixed(2)"></div>
-        </div>
-        <div class="card p-5">
-          <div class="text-xs text-gray-500 mb-1">Profit Factor</div>
-          <div class="text-3xl font-bold" :class="(stats?.profit_factor||0)>=1?'pnl-pos':'pnl-neg'"
-               x-text="(stats?.profit_factor||0).toFixed(2)"></div>
-        </div>
-        <div class="card p-5">
-          <div class="text-xs text-gray-500 mb-1">Avg Win</div>
-          <div class="text-2xl font-bold pnl-pos" x-text="'$'+(stats?.avg_win||0).toFixed(2)"></div>
-        </div>
-        <div class="card p-5">
-          <div class="text-xs text-gray-500 mb-1">Avg Loss</div>
-          <div class="text-2xl font-bold pnl-neg" x-text="'$'+(stats?.avg_loss||0).toFixed(2)"></div>
-        </div>
-        <div class="card p-5">
-          <div class="text-xs text-gray-500 mb-1">Best Trade</div>
-          <div class="text-2xl font-bold pnl-pos" x-text="'$'+(stats?.best_trade||0).toFixed(2)"></div>
-        </div>
-        <div class="card p-5">
-          <div class="text-xs text-gray-500 mb-1">Worst Trade</div>
-          <div class="text-2xl font-bold pnl-neg" x-text="'$'+(stats?.worst_trade||0).toFixed(2)"></div>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="surface p-5">
+            <div class="text-xs txt-muted font-medium uppercase tracking-wider mb-2">Avg Win</div>
+            <div class="text-2xl font-bold font-mono pnl-pos" x-text="'$'+(stats?.avg_win||0).toFixed(2)"></div>
+          </div>
+          <div class="surface p-5">
+            <div class="text-xs txt-muted font-medium uppercase tracking-wider mb-2">Avg Loss</div>
+            <div class="text-2xl font-bold font-mono pnl-neg" x-text="'$'+(stats?.avg_loss||0).toFixed(2)"></div>
+          </div>
+          <div class="surface p-5">
+            <div class="text-xs txt-muted font-medium uppercase tracking-wider mb-2">Best Trade</div>
+            <div class="text-2xl font-bold font-mono pnl-pos" x-text="'$'+(stats?.best_trade||0).toFixed(2)"></div>
+          </div>
+          <div class="surface p-5">
+            <div class="text-xs txt-muted font-medium uppercase tracking-wider mb-2">Worst Trade</div>
+            <div class="text-2xl font-bold font-mono pnl-neg" x-text="'$'+(stats?.worst_trade||0).toFixed(2)"></div>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- ── SETTINGS ───────────────────────────────────────────────────── -->
-    <div x-show="page==='settings'">
-      <div class="card p-6 max-w-lg">
-        <h2 class="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">Connect Exchange — Alpaca Markets</h2>
-        <p class="text-gray-500 text-sm mb-5">
-          Get your API keys at <span class="text-blue-400">alpaca.markets</span>. Use paper keys to test safely.
-        </p>
+    <div x-show="page==='settings'" class="max-w-2xl space-y-5">
+
+      <!-- Profile card -->
+      <div class="surface p-6">
+        <h2 class="text-xs font-bold txt-muted uppercase tracking-wider mb-5">Profile</h2>
+        <div class="flex items-center gap-4 mb-5">
+          <div class="avatar" style="width:54px;height:54px;font-size:20px;">
+            <span x-text="(profile.username||'U').slice(0,1).toUpperCase()"></span>
+          </div>
+          <div>
+            <div class="font-bold txt-primary text-lg" x-text="profile.username || '—'"></div>
+            <div class="txt-muted text-sm" x-text="profile.email || '—'"></div>
+          </div>
+        </div>
+        <div class="flex items-center justify-between p-4 rounded-xl surface-3">
+          <div>
+            <div class="text-sm font-medium txt-primary" x-text="darkMode ? '🌙 Dark Mode' : '☀️ Light Mode'"></div>
+            <div class="text-xs txt-muted mt-0.5">Toggle interface appearance</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" x-model="darkMode" @change="saveDarkMode()" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Exchange keys -->
+      <div class="surface p-6">
+        <h2 class="text-xs font-bold txt-muted uppercase tracking-wider mb-2">Exchange Connection — Alpaca Markets</h2>
+        <p class="txt-muted text-sm mb-5">Get free API keys at <a href="https://alpaca.markets" target="_blank" class="text-red-500 hover:underline">alpaca.markets</a>. Use paper keys until you're consistently profitable.</p>
+
         <form @submit.prevent="saveKeys()">
           <div class="mb-4">
-            <label class="block text-xs text-gray-400 mb-1">Alpaca API Key</label>
-            <input class="input" type="text" x-model="keysForm.alpaca_key" placeholder="PKXXXXXXXXXXXXXX" required />
+            <label class="block text-xs txt-muted mb-2 font-semibold uppercase tracking-wider">API Key</label>
+            <input class="input-cls" type="text" x-model="keysForm.alpaca_key" placeholder="PKXXXXXXXXXXXXXX" required />
           </div>
-          <div class="mb-4">
-            <label class="block text-xs text-gray-400 mb-1">Alpaca Secret Key</label>
-            <input class="input" type="password" x-model="keysForm.alpaca_secret" placeholder="••••••••••••••••••••••••••••••••••••••••" required />
+          <div class="mb-5">
+            <label class="block text-xs txt-muted mb-2 font-semibold uppercase tracking-wider">Secret Key</label>
+            <input class="input-cls" type="password" x-model="keysForm.alpaca_secret" placeholder="••••••••••••••••••••••••••••••••••••••••" required />
           </div>
-          <div class="mb-6 flex items-center gap-3">
-            <label class="text-sm text-gray-300">
-              <input type="checkbox" x-model="keysForm.alpaca_paper" class="mr-2" />
-              Paper Trading Mode <span class="text-gray-500">(recommended until profitable)</span>
+
+          <div class="flex items-center justify-between p-4 rounded-xl surface-3 mb-5">
+            <div>
+              <div class="text-sm font-medium txt-primary">Paper Trading Mode</div>
+              <div class="text-xs txt-muted mt-0.5">Recommended — no real money used</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" x-model="keysForm.alpaca_paper" />
+              <span class="toggle-slider"></span>
             </label>
           </div>
-          <div x-show="keysForm.alpaca_paper===false" class="mb-4 bg-red-950 border border-red-800 rounded p-3 text-red-300 text-sm">
-            ⚠ Live mode enabled — real money will be traded. Only use after thorough paper testing.
+
+          <div x-show="!keysForm.alpaca_paper" class="mb-5 p-4 rounded-xl" style="background:rgba(229,62,62,0.08);border:1px solid rgba(229,62,62,0.25);">
+            <div class="text-red-500 font-semibold text-sm mb-1">⚠ Live Mode — Real Money</div>
+            <div class="text-red-400 text-xs">Only enable after achieving consistent profitability in paper mode over 100+ trades.</div>
           </div>
-          <div x-show="settingsMsg" class="mb-4 text-green-400 text-sm" x-text="settingsMsg"></div>
-          <div x-show="settingsErr" class="mb-4 text-red-400 text-sm" x-text="settingsErr"></div>
-          <button class="btn-primary" type="submit" :disabled="loading">
-            <span x-text="loading ? 'Saving…' : 'Save Keys'"></span>
+
+          <div x-show="settingsMsg" class="mb-4 p-3 rounded-lg text-green-500 text-sm" style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2)" x-text="settingsMsg"></div>
+          <div x-show="settingsErr" class="mb-4 p-3 rounded-lg text-red-500 text-sm" style="background:rgba(229,62,62,0.08);border:1px solid rgba(229,62,62,0.2)" x-text="settingsErr"></div>
+
+          <button class="btn-red" type="submit" :disabled="loading">
+            <span x-text="loading ? 'Saving…' : 'Save & Connect'"></span>
           </button>
         </form>
       </div>
@@ -312,11 +623,12 @@
 </div>
 
 <script>
-const API = '';  // same origin
+const API = '';
 
 function app() {
   return {
     token: localStorage.getItem('vader_token') || '',
+    darkMode: localStorage.getItem('vader_dark') !== 'false',
     authTab: 'login',
     page: 'dashboard',
     loading: false,
@@ -327,117 +639,172 @@ function app() {
     loginForm: { username: '', password: '' },
     regForm: { username: '', email: '', password: '' },
     keysForm: { alpaca_key: '', alpaca_secret: '', alpaca_paper: true },
+    profile: {},
     status: {},
     trades: [],
     stats: null,
     pollInterval: null,
+    chartSymbol: 'BTC/USD',
+    chartTf: '5',
+    chartSymbols: ['BTC/USD','ETH/USD','SOL/USD'],
+    chartTimeframes: [
+      {label:'1m',value:'1'},{label:'5m',value:'5'},
+      {label:'15m',value:'15'},{label:'1H',value:'60'},{label:'1D',value:'D'},
+    ],
+    chartInfo: {fvgs:'',obs:'',structure:''},
 
     async init() {
-      if (this.token) await this.poll();
-      if (this.token) this.pollInterval = setInterval(() => this.poll(), 3000);
+      if (this.token) {
+        await this.poll();
+        await this.loadProfile();
+        this.pollInterval = setInterval(() => this.poll(), 3000);
+      }
+    },
+
+    saveDarkMode() {
+      localStorage.setItem('vader_dark', this.darkMode);
     },
 
     async api(path, method='GET', body=null) {
       const opts = {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.token ? { Authorization: 'Bearer ' + this.token } : {}),
-        },
+        headers: { 'Content-Type':'application/json',
+          ...(this.token ? {Authorization:'Bearer '+this.token} : {}) },
       };
       if (body) opts.body = JSON.stringify(body);
-      const r = await fetch(API + path, opts);
-      if (r.status === 401) { this.logout(); return null; }
+      const r = await fetch(API+path, opts);
+      if (r.status===401) { this.logout(); return null; }
       return r.ok ? r.json() : Promise.reject(await r.json());
     },
 
     async apiForm(path, formData) {
-      const r = await fetch(API + path, {
-        method: 'POST',
-        body: new URLSearchParams(formData),
-      });
+      const r = await fetch(API+path, {method:'POST', body:new URLSearchParams(formData)});
       return r.ok ? r.json() : Promise.reject(await r.json());
     },
 
-    async login() {
-      this.authError = ''; this.loading = true;
+    async loadProfile() {
       try {
-        const d = await this.apiForm('/api/auth/login', {
-          username: this.loginForm.username, password: this.loginForm.password,
-        });
-        this.token = d.access_token;
-        localStorage.setItem('vader_token', this.token);
-        this.pollInterval = setInterval(() => this.poll(), 3000);
+        const d = await this.api('/api/auth/me');
+        if (d) this.profile = d;
+      } catch {}
+    },
+
+    async login() {
+      this.authError=''; this.loading=true;
+      try {
+        const d = await this.apiForm('/api/auth/login',
+          {username:this.loginForm.username,password:this.loginForm.password});
+        this.token=d.access_token;
+        localStorage.setItem('vader_token',this.token);
+        await this.loadProfile();
+        this.pollInterval=setInterval(()=>this.poll(),3000);
         await this.poll();
-      } catch(e) {
-        this.authError = e.detail || 'Login failed';
-      } finally { this.loading = false; }
+      } catch(e) { this.authError=e.detail||'Login failed'; }
+      finally { this.loading=false; }
     },
 
     async register() {
-      this.authError = ''; this.loading = true;
+      this.authError=''; this.loading=true;
       try {
-        const d = await this.api('/api/auth/register', 'POST', this.regForm);
-        this.token = d.access_token;
-        localStorage.setItem('vader_token', this.token);
-        this.pollInterval = setInterval(() => this.poll(), 3000);
+        const d = await this.api('/api/auth/register','POST',this.regForm);
+        this.token=d.access_token;
+        localStorage.setItem('vader_token',this.token);
+        await this.loadProfile();
+        this.pollInterval=setInterval(()=>this.poll(),3000);
         await this.poll();
       } catch(e) {
-        this.authError = e.detail || 'Registration failed';
-      } finally { this.loading = false; }
+        this.authError = Array.isArray(e.detail)
+          ? e.detail.map(x=>x.msg||x).join(', ')
+          : (e.detail||'Registration failed');
+      } finally { this.loading=false; }
     },
 
     logout() {
       clearInterval(this.pollInterval);
-      this.token = ''; this.status = {};
+      this.token=''; this.status={}; this.profile={};
       localStorage.removeItem('vader_token');
     },
 
     async poll() {
       try {
         const s = await this.api('/api/bot/status');
-        if (s) this.status = s;
+        if (s) {
+          this.status=s;
+          if (s.symbols&&s.symbols.length) {
+            this.chartSymbols=s.symbols;
+            if (!this.chartSymbols.includes(this.chartSymbol))
+              this.chartSymbol=this.chartSymbols[0];
+          }
+        }
       } catch {}
     },
 
     async startBot() {
-      this.botLoading = true;
-      try {
-        await this.api('/api/bot/start', 'POST', {});
-        await this.poll();
-      } catch(e) {
-        alert(e.detail || 'Failed to start bot');
-      } finally { this.botLoading = false; }
+      this.botLoading=true;
+      try { await this.api('/api/bot/start','POST',{}); await this.poll(); }
+      catch(e) { alert(e.detail||'Failed to start bot'); }
+      finally { this.botLoading=false; }
     },
 
     async stopBot() {
-      this.botLoading = true;
-      try {
-        await this.api('/api/bot/stop', 'POST');
-        await this.poll();
-      } catch(e) {
-        alert(e.detail || 'Failed to stop bot');
-      } finally { this.botLoading = false; }
+      this.botLoading=true;
+      try { await this.api('/api/bot/stop','POST'); await this.poll(); }
+      catch(e) { alert(e.detail||'Failed to stop bot'); }
+      finally { this.botLoading=false; }
     },
 
     async loadTrades() {
       const d = await this.api('/api/bot/trades?limit=100');
-      if (d) this.trades = d;
+      if (d) this.trades=d;
     },
 
     async loadStats() {
       const d = await this.api('/api/bot/stats');
-      if (d && d.total_trades) this.stats = d;
+      if (d&&d.total_trades) this.stats=d;
+    },
+
+    loadChart() {
+      setTimeout(() => {
+        const container = document.getElementById('tv-chart-container');
+        if (!container) return;
+        const tvSymbol = this.chartSymbol.includes('/')
+          ? `COINBASE:${this.chartSymbol.replace('/','')}`
+          : `NASDAQ:${this.chartSymbol}`;
+        container.innerHTML='';
+        const inner=document.createElement('div');
+        inner.id='tv-inner'; inner.style.cssText='height:100%;width:100%;';
+        container.appendChild(inner);
+        const script=document.createElement('script');
+        script.type='text/javascript';
+        script.src='https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+        script.async=true;
+        script.textContent=JSON.stringify({
+          autosize:true, symbol:tvSymbol, interval:this.chartTf,
+          timezone:'America/New_York', theme:this.darkMode?'dark':'light',
+          style:'1', locale:'en',
+          backgroundColor:this.darkMode?'#000000':'#ffffff',
+          gridColor:this.darkMode?'rgba(255,255,255,0.03)':'rgba(0,0,0,0.04)',
+          hide_top_toolbar:false, hide_legend:false,
+          allow_symbol_change:true, save_image:false, withdateranges:true,
+          studies:['STD;Pivot_Points_Standard'],
+          container_id:'tv-inner',
+        });
+        inner.appendChild(script);
+        const sig=(this.status.signals||{})[this.chartSymbol]||'';
+        this.chartInfo.structure=sig||'scanning…';
+        this.chartInfo.fvgs=this.status.running?`Watching ${this.chartSymbol}`:'Start bot to detect';
+        this.chartInfo.obs=this.status.running?`Watching ${this.chartSymbol}`:'Start bot to detect';
+      },100);
     },
 
     async saveKeys() {
-      this.settingsMsg = ''; this.settingsErr = ''; this.loading = true;
+      this.settingsMsg=''; this.settingsErr=''; this.loading=true;
       try {
-        const d = await this.api('/api/auth/keys', 'POST', this.keysForm);
-        this.settingsMsg = d.message;
-      } catch(e) {
-        this.settingsErr = e.detail || 'Failed to save keys';
-      } finally { this.loading = false; }
+        const d=await this.api('/api/auth/keys','POST',this.keysForm);
+        this.settingsMsg=d.message;
+        await this.loadProfile();
+      } catch(e) { this.settingsErr=e.detail||'Failed to save keys'; }
+      finally { this.loading=false; }
     },
   };
 }

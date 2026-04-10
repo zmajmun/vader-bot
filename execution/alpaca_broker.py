@@ -26,8 +26,8 @@ from alpaca.trading.requests import (
     TakeProfitRequest,
     StopLossRequest,
 )
-from alpaca.data.historical import StockHistoricalDataClient
-from alpaca.data.requests import StockBarsRequest
+from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest, CryptoBarsRequest
 from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 
 from execution.broker import (
@@ -113,9 +113,13 @@ class AlpacaBroker(BrokerBase):
 
     def __init__(self, api_key: str, secret_key: str, paper: bool = True):
         self._trading = TradingClient(api_key, secret_key, paper=paper)
-        self._data = StockHistoricalDataClient(api_key, secret_key)
+        self._stock_data = StockHistoricalDataClient(api_key, secret_key)
+        self._crypto_data = CryptoHistoricalDataClient(api_key, secret_key)
         self._paper = paper
         log.info("AlpacaBroker initialised — %s mode", "PAPER" if paper else "LIVE")
+
+    def _is_crypto(self, symbol: str) -> bool:
+        return "/" in symbol or symbol.upper() in ("BTC", "ETH", "SOL", "AVAX", "LINK", "DOGE")
 
     # ── Account ────────────────────────────────────────────────────────────
 
@@ -286,24 +290,36 @@ class AlpacaBroker(BrokerBase):
         if tf is None:
             raise ValueError(f"Unknown timeframe: {timeframe}. Valid: {list(_TF_MAP)}")
 
-        # IEX free feed requires date range, not limit param.
-        # Estimate lookback: minutes_per_bar × limit / 390 trading mins per day × 1.5 buffer
         minutes = {"1Min": 1, "5Min": 5, "15Min": 15, "30Min": 30,
-                   "1Hour": 60, "4Hour": 240, "1Day": 390}.get(timeframe, 5)
-        calendar_days = max(7, int(limit * minutes / 390 * 2))
-        end = datetime.now(pytz.utc)
-        start = end - timedelta(days=calendar_days)
+                   "1Hour": 60, "4Hour": 240, "1Day": 1440}.get(timeframe, 5)
 
-        req = StockBarsRequest(
-            symbol_or_symbols=symbol,
-            timeframe=tf,
-            start=start,
-            end=end,
-            feed="iex",
-        )
-        bars = await _run(self._data.get_stock_bars, req)
+        if self._is_crypto(symbol):
+            # Crypto trades 24/7 — use exact calendar days
+            calendar_days = max(3, int(limit * minutes / 1440 * 1.5))
+            end = datetime.now(pytz.utc)
+            start = end - timedelta(days=calendar_days)
+            req = CryptoBarsRequest(
+                symbol_or_symbols=symbol,
+                timeframe=tf,
+                start=start,
+                end=end,
+            )
+            bars = await _run(self._crypto_data.get_crypto_bars, req)
+        else:
+            # Stocks — account for only 390 trading mins/day
+            calendar_days = max(7, int(limit * minutes / 390 * 2))
+            end = datetime.now(pytz.utc)
+            start = end - timedelta(days=calendar_days)
+            req = StockBarsRequest(
+                symbol_or_symbols=symbol,
+                timeframe=tf,
+                start=start,
+                end=end,
+                feed="iex",
+            )
+            bars = await _run(self._stock_data.get_stock_bars, req)
+
         df = bars.df
-
         if df.empty:
             return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
 
@@ -316,8 +332,15 @@ class AlpacaBroker(BrokerBase):
         return df[cols].tail(limit)
 
     async def get_latest_price(self, symbol: str) -> float:
-        from alpaca.data.requests import StockLatestQuoteRequest
-        req = StockLatestQuoteRequest(symbol_or_symbols=symbol)
-        quote = await _run(self._data.get_stock_latest_quote, req)
-        q = quote[symbol]
-        return float((q.ask_price + q.bid_price) / 2)
+        if self._is_crypto(symbol):
+            from alpaca.data.requests import CryptoLatestQuoteRequest
+            req = CryptoLatestQuoteRequest(symbol_or_symbols=symbol)
+            quote = await _run(self._crypto_data.get_crypto_latest_quote, req)
+            q = quote[symbol]
+            return float((q.ask_price + q.bid_price) / 2)
+        else:
+            from alpaca.data.requests import StockLatestQuoteRequest
+            req = StockLatestQuoteRequest(symbol_or_symbols=symbol)
+            quote = await _run(self._stock_data.get_stock_latest_quote, req)
+            q = quote[symbol]
+            return float((q.ask_price + q.bid_price) / 2)

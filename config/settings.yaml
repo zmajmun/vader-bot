@@ -9,19 +9,25 @@ bot:
   log_level: INFO
 
 universe:
-  # Symbols to trade — add/remove freely
+  # ── Crypto (24/7, recommended for SMC learning) ──────────────────────
   symbols:
-    - SPY
-    - QQQ
-    - NVDA
-    - TSLA
-    - AAPL
+    - BTC/USD
+    - ETH/USD
+    - SOL/USD
+  asset_class: crypto       # crypto | stocks
   # Primary execution timeframe
   timeframe: "5Min"
   # Higher timeframe for trend bias
   htf_timeframe: "1Hour"
   # Candles to load on startup
   warmup_bars: 500
+
+  # ── Stock alternatives (comment in to switch back) ────────────────────
+  # symbols:
+  #   - SPY
+  #   - QQQ
+  #   - NVDA
+  # asset_class: stocks
 
 smc:
   swing_length: 10        # swing_highs_lows lookback
@@ -34,8 +40,10 @@ smc:
   min_ob_strength: 30.0
 
 strategy:
-  # Session filter — only trade during NY open kill zone
+  # Session filter — crypto trades 24/7 so use London + NY kill zones
+  # Set to "New York kill zone" for stocks, "Custom" disabled for crypto 24/7
   session: "New York kill zone"
+  crypto_24_7: true         # if true, ignore session filter for crypto
   # Require HTF trend alignment before entry
   htf_trend_filter: true
   # CHoCH required before FVG/OB entry

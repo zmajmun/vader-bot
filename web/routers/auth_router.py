@@ -37,7 +37,8 @@ class RegisterRequest(BaseModel):
     def password_strength(cls, v):
         if len(v) < 8:
             raise ValueError("Password must be at least 8 characters")
-        return v
+        # bcrypt hard limit is 72 bytes — truncate silently to avoid errors
+        return v[:72]
 
 
 class TokenResponse(BaseModel):

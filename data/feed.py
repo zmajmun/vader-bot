@@ -14,7 +14,7 @@ from collections import deque
 from typing import Callable, Coroutine, Dict, List, Optional
 
 import pandas as pd
-from alpaca.data.live import StockDataStream
+from alpaca.data.live import StockDataStream, CryptoDataStream
 from alpaca.data.models import Bar
 
 log = logging.getLogger(__name__)
@@ -108,38 +108,52 @@ class DataFeed:
     def subscribe(self, callback: BarCallback):
         self._callbacks.append(callback)
 
+    def _is_crypto(self, symbol: str) -> bool:
+        return "/" in symbol
+
     async def stream(self):
         """Start the live WebSocket stream. Blocks until stopped."""
-        self._stream = StockDataStream(self._api_key, self._secret_key)
+        crypto_syms = [s for s in self.symbols if self._is_crypto(s)]
+        stock_syms  = [s for s in self.symbols if not self._is_crypto(s)]
 
         async def _on_bar(bar: Bar):
             symbol = bar.symbol
             if symbol not in self._ltf_buffers:
                 return
-
             row = {
                 "timestamp": bar.timestamp,
-                "open": float(bar.open),
-                "high": float(bar.high),
-                "low": float(bar.low),
-                "close": float(bar.close),
+                "open":   float(bar.open),
+                "high":   float(bar.high),
+                "low":    float(bar.low),
+                "close":  float(bar.close),
                 "volume": float(bar.volume),
             }
             self._ltf_buffers[symbol].append(row)
-
             df = self.get_ltf(symbol)
             if df is None or len(df) < 20:
                 return
-
             for cb in self._callbacks:
                 try:
                     await cb(symbol, df)
                 except Exception as e:
                     log.error("Callback error for %s: %s", symbol, e)
 
-        self._stream.subscribe_bars(_on_bar, *self.symbols)
-        log.info("Live stream started for: %s", self.symbols)
-        await self._stream._run_forever()
+        tasks = []
+        if crypto_syms:
+            crypto_stream = CryptoDataStream(self._api_key, self._secret_key)
+            crypto_stream.subscribe_bars(_on_bar, *crypto_syms)
+            self._stream = crypto_stream
+            log.info("Crypto stream started: %s", crypto_syms)
+            tasks.append(crypto_stream.run())
+
+        if stock_syms:
+            stock_stream = StockDataStream(self._api_key, self._secret_key)
+            stock_stream.subscribe_bars(_on_bar, *stock_syms)
+            log.info("Stock stream started: %s", stock_syms)
+            tasks.append(stock_stream.run())
+
+        if tasks:
+            await asyncio.gather(*tasks)
 
     async def stop(self):
         if self._stream:

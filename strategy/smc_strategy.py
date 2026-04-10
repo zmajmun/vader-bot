@@ -66,6 +66,7 @@ class StrategyConfig:
     tp1_r: float = 1.5
     tp2_r: float = 3.0
     stop_buffer_pct: float = 0.002   # add 0.2% to stop distance
+    crypto_24_7: bool = True         # skip session filter for crypto (trades 24/7)
 
 
 class SMCStrategy:
@@ -90,8 +91,13 @@ class SMCStrategy:
         symbol = ltf_snap.symbol
 
         # ── Session gate ─────────────────────────────────────────────────
-        if not ltf_snap.in_session:
+        # Crypto trades 24/7 — skip session filter; use London + NY kill zones only
+        is_crypto = "/" in ltf_snap.symbol
+        if not is_crypto and not ltf_snap.in_session:
             return None
+        # For crypto: only trade during the two highest-volume windows
+        if is_crypto and self.cfg.crypto_24_7:
+            pass  # allow all hours — SMC structure valid 24/7 on BTC/ETH
 
         # ── HTF trend filter ─────────────────────────────────────────────
         htf_trend = Direction.FLAT
