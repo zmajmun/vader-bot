@@ -139,7 +139,7 @@ class DataFeed:
 
         self._stream.subscribe_bars(_on_bar, *self.symbols)
         log.info("Live stream started for: %s", self.symbols)
-        await self._stream.run()
+        await self._stream._run_forever()
 
     async def stop(self):
         if self._stream:

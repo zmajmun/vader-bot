@@ -10,7 +10,10 @@ import uuid
 from functools import partial
 from typing import Optional
 
+from datetime import datetime, timedelta
+
 import pandas as pd
+import pytz
 from alpaca.trading.client import TradingClient
 from alpaca.trading.enums import (
     OrderSide as AlpacaOrderSide,
@@ -283,24 +286,34 @@ class AlpacaBroker(BrokerBase):
         if tf is None:
             raise ValueError(f"Unknown timeframe: {timeframe}. Valid: {list(_TF_MAP)}")
 
+        # IEX free feed requires date range, not limit param.
+        # Estimate lookback: minutes_per_bar × limit / 390 trading mins per day × 1.5 buffer
+        minutes = {"1Min": 1, "5Min": 5, "15Min": 15, "30Min": 30,
+                   "1Hour": 60, "4Hour": 240, "1Day": 390}.get(timeframe, 5)
+        calendar_days = max(7, int(limit * minutes / 390 * 2))
+        end = datetime.now(pytz.utc)
+        start = end - timedelta(days=calendar_days)
+
         req = StockBarsRequest(
             symbol_or_symbols=symbol,
             timeframe=tf,
-            limit=limit,
-            adjustment="all",
+            start=start,
+            end=end,
+            feed="iex",
         )
         bars = await _run(self._data.get_stock_bars, req)
         df = bars.df
+
+        if df.empty:
+            return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
 
         if isinstance(df.index, pd.MultiIndex):
             df = df.xs(symbol, level="symbol")
 
         df.index = pd.to_datetime(df.index, utc=True)
-        df = df.rename(columns={
-            "open": "open", "high": "high", "low": "low",
-            "close": "close", "volume": "volume",
-        })
-        return df[["open", "high", "low", "close", "volume"]]
+        df.columns = [c.lower() for c in df.columns]
+        cols = [c for c in ["open", "high", "low", "close", "volume"] if c in df.columns]
+        return df[cols].tail(limit)
 
     async def get_latest_price(self, symbol: str) -> float:
         from alpaca.data.requests import StockLatestQuoteRequest
