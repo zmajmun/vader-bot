@@ -160,7 +160,8 @@
 </div>
 
 <!-- ═══════════════════════════════════════════ MAIN APP -->
-<div x-show="token" style="min-height:100vh;display:flex;flex-direction:column;">
+<!-- height:100vh + overflow:hidden makes ALL children operate within the exact viewport -->
+<div x-show="token" style="height:100vh;display:flex;flex-direction:column;overflow:hidden;">
 
   <!-- ── HEADER ─────────────────────────────────────────────────────── -->
   <header class="surface border-b bdr px-6 flex items-center justify-between" style="height:60px;border-radius:0;flex-shrink:0;">
@@ -262,8 +263,11 @@
     <button class="nav-tab" :class="page==='settings'?'active':''"  @click="page='settings'">Settings</button>
   </nav>
 
+  <!-- ═══════════════════════════════════════ CONTENT WRAPPER (fills everything below nav) -->
+  <div style="flex:1;min-height:0;display:flex;flex-direction:column;position:relative;">
+
   <!-- ═══════════════════════════════════════ CHARTS PAGE (full-height, no scroll) -->
-  <div x-show="page==='charts'" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;">
+  <div x-show="page==='charts'" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;">
 
     <!-- Chart toolbar -->
     <div class="chart-toolbar flex items-center gap-3 px-4 flex-wrap" style="flex-shrink:0;height:48px;padding-top:0;padding-bottom:0;">
@@ -301,7 +305,7 @@
       </button>
     </div>
 
-    <!-- Main chart canvas area -->
+    <!-- Main chart canvas area: fills all remaining flex space -->
     <div id="lw-chart-container" style="flex:1;min-height:0;position:relative;overflow:hidden;">
       <!-- SMC overlay canvas (drawn on top of Lightweight Charts) -->
       <canvas id="smc-overlay" style="position:absolute;top:0;left:0;pointer-events:none;z-index:2;"></canvas>
@@ -328,10 +332,16 @@
       <!-- Chart error message -->
       <div x-show="chartError && !chartLoading" style="position:absolute;inset:0;z-index:9;display:flex;align-items:center;justify-content:center;">
         <div class="surface p-8 rounded-2xl text-center max-w-sm mx-4">
-          <div class="text-4xl mb-3">⚠️</div>
-          <div class="font-bold txt-primary mb-2">Chart Error</div>
-          <div class="text-sm txt-muted mb-4" x-text="chartError"></div>
-          <button @click="reloadLWChart()" class="btn-ghost btn-sm">Retry</button>
+          <div class="text-4xl mb-3" x-text="chartError && chartError.toLowerCase().includes('key') ? '🔑' : '⚠️'"></div>
+          <div class="font-bold txt-primary mb-2"
+               x-text="chartError && chartError.toLowerCase().includes('key') ? 'Invalid API Keys' : 'Chart Error'"></div>
+          <div class="text-sm txt-muted mb-5"
+               x-text="chartError && chartError.length > 200 ? 'Alpaca API authentication failed. Please check your API keys.' : chartError"></div>
+          <div class="flex gap-3 justify-center">
+            <button @click="reloadLWChart()" class="btn-ghost btn-sm">Retry</button>
+            <button x-show="chartError && (chartError.toLowerCase().includes('key') || chartError.toLowerCase().includes('auth') || chartError.toLowerCase().includes('401'))"
+                    @click="page='settings'" class="btn-red btn-sm">Update Keys</button>
+          </div>
         </div>
       </div>
     </div>
@@ -396,9 +406,11 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════ OTHER PAGES (scrollable) -->
-  <div x-show="page!=='charts'" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;">
-    <main class="p-6 max-w-7xl mx-auto w-full" style="flex:1;">
+  <!-- ═══════════════════════════════════════ OTHER PAGES (main scrolls, footer pinned) -->
+  <div x-show="page!=='charts'" style="flex:1;min-height:0;display:flex;flex-direction:column;">
+    <!-- scrollable content area -->
+    <div style="flex:1;overflow-y:auto;min-height:0;">
+    <main class="p-6 max-w-7xl mx-auto w-full">
 
       <!-- ── DASHBOARD ───────────────────────────────────────────────── -->
       <div x-show="page==='dashboard'" class="space-y-5">
@@ -533,57 +545,123 @@
         </div>
         <div class="surface p-6">
           <h2 class="text-xs font-bold txt-muted uppercase tracking-wider mb-2">Exchange Connection — Alpaca Markets</h2>
-          <p class="txt-muted text-sm mb-5">Get free API keys at <a href="https://alpaca.markets" target="_blank" class="text-red-500 hover:underline">alpaca.markets</a>. Use paper keys until consistently profitable.</p>
+
+          <!-- Step-by-step guide -->
+          <div class="p-4 rounded-xl mb-5 surface-3">
+            <div class="text-xs font-bold txt-muted uppercase tracking-wider mb-3">How to get your Paper Trading keys</div>
+            <ol class="space-y-2">
+              <li class="flex gap-3 text-sm txt-secondary">
+                <span class="flex-shrink-0 w-5 h-5 rounded-full bg-red-600 text-white text-xs flex items-center justify-center font-bold">1</span>
+                Go to <a href="https://app.alpaca.markets/paper/dashboard/overview" target="_blank" class="text-red-500 hover:underline ml-1">app.alpaca.markets</a> → top-right menu → <strong class="txt-primary">Paper Trading</strong>
+              </li>
+              <li class="flex gap-3 text-sm txt-secondary">
+                <span class="flex-shrink-0 w-5 h-5 rounded-full bg-red-600 text-white text-xs flex items-center justify-center font-bold">2</span>
+                Click <strong class="txt-primary">Your API Keys</strong> on the right sidebar → <strong class="txt-primary">Generate New Key</strong>
+              </li>
+              <li class="flex gap-3 text-sm txt-secondary">
+                <span class="flex-shrink-0 w-5 h-5 rounded-full bg-red-600 text-white text-xs flex items-center justify-center font-bold">3</span>
+                Copy <strong class="txt-primary">both</strong> the API Key (starts with PK…) <em>and</em> Secret Key — paste below
+              </li>
+              <li class="flex gap-3 text-sm txt-secondary">
+                <span class="flex-shrink-0 w-5 h-5 rounded-full bg-red-600 text-white text-xs flex items-center justify-center font-bold">4</span>
+                Keep <strong class="txt-primary">Paper Trading</strong> toggle ON below and click Save
+              </li>
+            </ol>
+          </div>
+
           <form @submit.prevent="saveKeys()">
-            <div class="mb-4"><label class="block text-xs txt-muted mb-2 font-semibold uppercase tracking-wider">API Key</label>
-              <input class="input-cls" type="text"     x-model="keysForm.alpaca_key"    placeholder="PKXXXXXXXXXXXXXX" required /></div>
-            <div class="mb-5"><label class="block text-xs txt-muted mb-2 font-semibold uppercase tracking-wider">Secret Key</label>
-              <input class="input-cls" type="password" x-model="keysForm.alpaca_secret" placeholder="••••••••••••••••••••••••••••••••••••••••" required /></div>
+            <div class="mb-4">
+              <label class="block text-xs txt-muted mb-2 font-semibold uppercase tracking-wider">API Key <span class="normal-case font-normal">(starts with PK…)</span></label>
+              <input class="input-cls font-mono" type="text" x-model="keysForm.alpaca_key"
+                     placeholder="PKXXXXXXXXXXXXXXXXXXXXXXXX" autocomplete="off" required />
+            </div>
+            <div class="mb-5">
+              <label class="block text-xs txt-muted mb-2 font-semibold uppercase tracking-wider">Secret Key <span class="normal-case font-normal">(40 characters)</span></label>
+              <input class="input-cls font-mono" type="password" x-model="keysForm.alpaca_secret"
+                     placeholder="••••••••••••••••••••••••••••••••••••••••" autocomplete="new-password" required />
+            </div>
+
             <div class="flex items-center justify-between p-4 rounded-xl surface-3 mb-5">
-              <div><div class="text-sm font-medium txt-primary">Paper Trading Mode</div>
-                   <div class="text-xs txt-muted mt-0.5">Recommended — no real money used</div></div>
+              <div>
+                <div class="text-sm font-medium txt-primary">Paper Trading Mode</div>
+                <div class="text-xs txt-muted mt-0.5">No real money — use paper keys from Alpaca Paper dashboard</div>
+              </div>
               <label class="toggle"><input type="checkbox" x-model="keysForm.alpaca_paper" /><span class="toggle-slider"></span></label>
             </div>
+
             <div x-show="!keysForm.alpaca_paper" class="mb-5 p-4 rounded-xl" style="background:rgba(229,62,62,.08);border:1px solid rgba(229,62,62,.25);">
-              <div class="text-red-500 font-semibold text-sm mb-1">⚠ Live Mode — Real Money</div>
-              <div class="text-red-400 text-xs">Only enable after 100+ profitable paper trades.</div>
+              <div class="text-red-500 font-semibold text-sm mb-1">⚠ Live Mode — Real Money at Risk</div>
+              <div class="text-red-400 text-xs">Live keys come from the main Alpaca dashboard, not the Paper dashboard. Only enable after 100+ profitable paper trades.</div>
             </div>
-            <div x-show="settingsMsg" class="mb-4 p-3 rounded-lg text-green-500 text-sm" style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2)" x-text="settingsMsg"></div>
-            <div x-show="settingsErr" class="mb-4 p-3 rounded-lg text-red-500 text-sm"   style="background:rgba(229,62,62,.08);border:1px solid rgba(229,62,62,.2)"  x-text="settingsErr"></div>
-            <button class="btn-red" type="submit" :disabled="loading"><span x-text="loading?'Saving…':'Save & Connect'"></span></button>
+
+            <div x-show="settingsMsg" class="mb-4 p-3 rounded-lg text-green-500 text-sm font-medium" style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2)" x-text="settingsMsg"></div>
+
+            <!-- Multi-line error (shows 401 troubleshooting steps) -->
+            <div x-show="settingsErr" class="mb-4 p-4 rounded-xl" style="background:rgba(229,62,62,.08);border:1px solid rgba(229,62,62,.25);">
+              <div class="text-red-500 font-semibold text-sm mb-2">Connection Failed</div>
+              <div class="text-red-400 text-xs space-y-1">
+                <template x-for="line in (settingsErr||'').split('\n').filter(l=>l.trim())" :key="line">
+                  <div x-text="line"></div>
+                </template>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <button class="btn-red" type="submit" :disabled="loading">
+                <span x-text="loading ? 'Verifying keys…' : '⚡ Save & Verify Connection'"></span>
+              </button>
+              <span x-show="loading" class="text-xs txt-muted">Testing keys against Alpaca…</span>
+            </div>
           </form>
         </div>
       </div>
     </main>
+    </div><!-- /scrollable content area -->
 
-    <!-- ── FOOTER ──────────────────────────────────────────────────────── -->
-    <footer class="surface border-t bdr mt-auto" style="border-radius:0;flex-shrink:0;">
-      <div class="max-w-7xl mx-auto px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <!-- Brand -->
-        <div class="flex items-center gap-3">
-          <div style="width:5px;height:20px;background:#e53e3e;border-radius:2px;"></div>
-          <span class="font-black tracking-[0.18em] txt-primary text-sm">VADER</span>
-          <span class="txt-muted text-xs">SMC Algorithmic Trading Bot v1.0</span>
-        </div>
-        <!-- Links -->
-        <div class="flex items-center gap-5 txt-muted">
-          <a href="/api/docs" target="_blank" class="footer-link txt-muted">API Docs</a>
-          <span class="w-px h-3" :class="darkMode?'bg-white/15':'bg-gray-300'" style="display:inline-block;"></span>
-          <a href="https://alpaca.markets" target="_blank" class="footer-link txt-muted">Alpaca Markets</a>
-          <span class="w-px h-3" :class="darkMode?'bg-white/15':'bg-gray-300'" style="display:inline-block;"></span>
-          <a href="https://github.com/zmajmun/vader-bot" target="_blank" class="footer-link txt-muted">GitHub</a>
-        </div>
-        <!-- Status + copyright -->
-        <div class="flex items-center gap-3 text-xs txt-muted">
-          <span class="flex items-center gap-1.5">
-            <span :class="status.running?'dot-live':'dot-off'" style="width:6px;height:6px;"></span>
-            <span x-text="status.running ? 'Bot Active · '+(status.mode||'paper').toUpperCase() : 'Bot Idle'"></span>
+    <!-- ── FOOTER: always pinned at bottom, never scrolls out ──────── -->
+    <footer style="flex-shrink:0;border-radius:0;" class="border-t bdr"
+            :style="darkMode ? 'background:#0a0a0a;' : 'background:#fff;'">
+      <div class="px-6 flex items-center justify-between" style="height:52px;">
+
+        <!-- Left: brand + version -->
+        <div class="flex items-center gap-4">
+          <div class="flex items-center gap-2">
+            <div style="width:4px;height:18px;background:#e53e3e;border-radius:2px;"></div>
+            <span class="font-black tracking-[0.15em] txt-primary" style="font-size:13px;">VADER</span>
+          </div>
+          <span class="txt-muted" style="font-size:11px;font-weight:500;">v1.0  ·  SMC Algo Bot</span>
+          <!-- Bot status pill -->
+          <span class="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full" style="font-size:11px;font-weight:600;"
+                :style="status.running ? (darkMode?'background:#0a1f0a;color:#4ade80;':'background:#f0fdf4;color:#16a34a;') : (darkMode?'background:#111;color:#555;':'background:#f5f5f5;color:#999;')">
+            <span :class="status.running?'dot-live':'dot-off'" style="width:5px;height:5px;"></span>
+            <span x-text="status.running ? (status.mode||'paper').toUpperCase()+' MODE' : 'IDLE'"></span>
           </span>
-          <span>· © 2026 VADER</span>
+        </div>
+
+        <!-- Center: live market prices ticker -->
+        <div class="hidden lg:flex items-center gap-5">
+          <template x-for="sym in (status.symbols||['BTC/USD','ETH/USD','SOL/USD'])" :key="sym">
+            <div class="flex items-center gap-2">
+              <span class="txt-muted font-mono" style="font-size:11px;" x-text="sym.replace('/USD','')"></span>
+              <span class="font-mono font-semibold" style="font-size:11px;"
+                    :class="(status.prices||{})[sym] ? 'txt-primary' : 'txt-muted'"
+                    x-text="(status.prices||{})[sym] ? '$'+Number((status.prices||{})[sym]).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'"></span>
+            </div>
+          </template>
+        </div>
+
+        <!-- Right: links + time -->
+        <div class="flex items-center gap-4">
+          <a href="/api/docs" target="_blank" class="footer-link txt-muted hidden sm:block" style="font-size:11px;">API Docs</a>
+          <a href="https://github.com/zmajmun/vader-bot" target="_blank" class="footer-link txt-muted hidden sm:block" style="font-size:11px;">GitHub</a>
+          <span class="txt-muted" style="font-size:11px;" x-text="new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',timeZoneName:'short'})"></span>
+          <span class="txt-muted hidden sm:block" style="font-size:11px;">© 2026</span>
         </div>
       </div>
     </footer>
   </div><!-- /other pages -->
+
+  </div><!-- /content wrapper -->
 
 </div><!-- /token -->
 
@@ -1003,34 +1081,33 @@ function app() {
     },
 
     // ── Fullscreen ───────────────────────────────────────────────────
-    enterFullscreen() {
-      this.chartFs = true;
-      this.$nextTick(() => {
-        // Destroy normal chart, build fullscreen chart in fs container
-        if (this._lwChart) { try { this._lwChart.remove(); } catch {} this._lwChart=null; this._lwSeries=null; this._lwVolSeries=null; }
-        if (this._lwRo) { this._lwRo.disconnect(); this._lwRo=null; }
-        // rebind canvas pointers to FS canvas
-        setTimeout(() => { this.initFSChart(); }, 50);
-      });
+    _destroyChart() {
+      if (this._lwChart)  { try { this._lwChart.remove(); } catch {} }
+      if (this._lwRo)     { this._lwRo.disconnect(); }
+      this._lwChart = null; this._lwSeries = null; this._lwVolSeries = null;
+      this._lwPriceLines = []; this._lwRo = null;
     },
 
-    initFSChart() {
-      // Override canvas refs to point at fullscreen elements
-      this._smcCanvas = document.getElementById('smc-overlay-fs');
-      this._smcCtx    = this._smcCanvas ? this._smcCanvas.getContext('2d') : null;
-      this.initLWChart(); // init in FS container
+    enterFullscreen() {
+      this._destroyChart();
+      this.chartFs = true;
+      // Give Alpine time to render the FS overlay, then mount chart inside it
+      setTimeout(() => {
+        this._smcCanvas = document.getElementById('smc-overlay-fs');
+        this._smcCtx    = this._smcCanvas ? this._smcCanvas.getContext('2d') : null;
+        this.initLWChart();
+      }, 120);
     },
 
     exitFullscreen() {
+      this._destroyChart();
       this.chartFs = false;
-      this.$nextTick(() => {
-        if (this._lwChart) { try { this._lwChart.remove(); } catch {} this._lwChart=null; this._lwSeries=null; this._lwVolSeries=null; }
-        if (this._lwRo) { this._lwRo.disconnect(); this._lwRo=null; }
-        // Restore normal canvas
+      // Give Alpine time to hide the FS overlay and show normal container
+      setTimeout(() => {
         this._smcCanvas = document.getElementById('smc-overlay');
         this._smcCtx    = this._smcCanvas ? this._smcCanvas.getContext('2d') : null;
-        setTimeout(() => { this.initLWChart(); }, 50);
-      });
+        this.initLWChart();
+      }, 120);
     },
 
     // ── Reload chart (symbol/TF change) ─────────────────────────────
@@ -1039,12 +1116,24 @@ function app() {
       else this.initLWChart();
     },
 
-    // ── Rebuild chart after dark/light toggle ────────────────────────
+    // ── Retheme chart after dark/light toggle (NO destroy/recreate) ──
     rebuildChart() {
-      if (this.page !== 'charts') return;
-      if (this._lwChart) { try { this._lwChart.remove(); } catch {} this._lwChart=null; this._lwSeries=null; this._lwVolSeries=null; }
-      if (this._lwRo) { this._lwRo.disconnect(); this._lwRo=null; }
-      this.$nextTick(() => this.initLWChart());
+      if (!this._lwChart) return;  // chart not active — nothing to do
+      const isDark = this.darkMode;
+      this._lwChart.applyOptions({
+        layout: {
+          background: { color: isDark ? '#0d0d0d' : '#ffffff' },
+          textColor:   isDark ? '#666' : '#555',
+        },
+        grid: {
+          vertLines: { color: isDark ? '#111' : '#f3f3f3' },
+          horzLines: { color: isDark ? '#111' : '#f3f3f3' },
+        },
+        rightPriceScale: { borderColor: isDark ? '#1a1a1a' : '#e5e5e5' },
+        timeScale:       { borderColor: isDark ? '#1a1a1a' : '#e5e5e5' },
+      });
+      // Candlestick colors stay the same (green/red) — no change needed
+      this.drawSMCOverlay();   // re-draw zones with same data
     },
   };
 }

@@ -13,7 +13,12 @@
       "Bash(curl -s \"https://api.github.com/repos/joshyattridge/smart-money-concepts/contents\")",
       "Bash(curl -s https://raw.githubusercontent.com/joshyattridge/smart-money-concepts/main/smartmoneyconcepts/smc.py)",
       "Bash(gh api:*)",
-      "Bash(curl -s https://raw.githubusercontent.com/joshyattridge/smart-money-concepts/master/smartmoneyconcepts/smc.py)"
+      "Bash(curl -s https://raw.githubusercontent.com/joshyattridge/smart-money-concepts/master/smartmoneyconcepts/smc.py)",
+      "Bash(python3 -c \"from web.app import app; print\\(''✓ Web app imports OK''\\)\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/)"
     ]
   }
 }

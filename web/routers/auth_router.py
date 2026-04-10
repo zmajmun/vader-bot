@@ -112,14 +112,46 @@ def me(user: User = Depends(get_current_user)):
 
 
 @router.post("/keys")
-def save_alpaca_keys(
+async def save_alpaca_keys(
     body: UpdateKeysRequest,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    user.alpaca_key = body.alpaca_key
-    user.alpaca_secret = body.alpaca_secret
-    user.alpaca_paper = body.alpaca_paper
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+    # ── Validate keys against Alpaca BEFORE saving ────────────────────────
+    try:
+        from execution.alpaca_broker import AlpacaBroker
+        broker = AlpacaBroker(
+            body.alpaca_key.strip(),
+            body.alpaca_secret.strip(),
+            paper=body.alpaca_paper,
+        )
+        acct = await broker.get_account()   # will 401 if keys are wrong
+        equity = round(float(acct.equity), 2)
+    except Exception as exc:
+        err = str(exc)
+        if "<html" in err.lower() or "401" in err or "forbidden" in err.lower() or "unauthorized" in err.lower():
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Alpaca rejected these keys (401). Common causes:\n"
+                    "• Wrong key type — Paper keys must match Paper mode, Live keys for Live mode\n"
+                    "• Keys copied incorrectly — check for missing/extra characters\n"
+                    "• Keys not yet active — wait 30 seconds after generating and try again\n"
+                    "• Swapped key/secret — make sure API Key goes in 'API Key' field"
+                ),
+            )
+        raise HTTPException(status_code=400, detail=f"Could not connect to Alpaca: {err[:200]}")
+
+    user.alpaca_key    = body.alpaca_key.strip()
+    user.alpaca_secret = body.alpaca_secret.strip()
+    user.alpaca_paper  = body.alpaca_paper
     db.commit()
-    mode = "paper" if body.alpaca_paper else "LIVE"
-    return {"message": f"Alpaca keys saved ({mode} mode)"}
+    mode = "PAPER" if body.alpaca_paper else "LIVE"
+    return {
+        "message": f"✓ Connected to Alpaca {mode} — Account equity: ${equity:,.2f}",
+        "equity": equity,
+    }

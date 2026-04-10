@@ -185,5 +185,14 @@ async def chart_data(
     except HTTPException:
         raise
     except Exception as exc:
-        log.error("Chart data error for %s: %s", symbol, exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        err = str(exc)
+        log.error("Chart data error for %s: %s", symbol, err[:300])
+        # Alpaca SDK raises APIError with raw nginx HTML on auth failure — detect and clean
+        if "<html" in err.lower() or "401" in err or "403" in err or "authorization" in err.lower():
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid Alpaca API keys. Please update them in Settings → Exchange Connection.",
+            )
+        if "APIError" in type(exc).__name__ or "alpaca" in type(exc).__module__:
+            raise HTTPException(status_code=502, detail=f"Alpaca API error: {err[:200]}")
+        raise HTTPException(status_code=500, detail=err[:300])
