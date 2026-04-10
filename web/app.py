@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from web.models import init_db
 from web.routers.auth_router import router as auth_router
 from web.routers.bot_router import router as bot_router
+from web.routers.chart_router import router as chart_router
 
 WEB_DIR = Path(__file__).parent
 
@@ -35,6 +36,7 @@ app.add_middleware(
 # Routers
 app.include_router(auth_router)
 app.include_router(bot_router)
+app.include_router(chart_router)
 
 # Static files
 static_dir = WEB_DIR / "static"
