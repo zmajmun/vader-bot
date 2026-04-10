@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from web.auth import get_current_user
-from web.models import TradeLog, User, get_db
+from web.models import SessionLocal, TradeLog, User, get_db
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/bot", tags=["bot"])
@@ -215,11 +215,75 @@ async def _run_bot_for_user(user: User, symbol_override: Optional[List[str]]):
     from core.engine import TradingEngine
     from data.feed import DataFeed
     from execution.alpaca_broker import AlpacaBroker
-    from execution.order_manager import OrderManager
+    from execution.order_manager import OrderManager, ManagedTrade
     from monitoring.alerts import Alerter
     from monitoring.dashboard import Dashboard
     from risk.position_sizer import PositionSizer, RiskConfig
-    from strategy.smc_strategy import SMCStrategy, StrategyConfig
+    from strategy.smc_strategy import SMCStrategy, StrategyConfig, TradeSetup
+
+    class LoggingOrderManager(OrderManager):
+        """Extends OrderManager to persist trades to the database."""
+
+        def __init__(self, user_id: int, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._user_id = user_id
+            self._trade_log_ids: Dict[str, int] = {}  # symbol → TradeLog.id
+
+        async def enter(self, setup: TradeSetup, shares: int) -> Optional[ManagedTrade]:
+            trade = await super().enter(setup, shares)
+            if trade is None:
+                return None
+            db = SessionLocal()
+            try:
+                row = TradeLog(
+                    user_id=self._user_id,
+                    symbol=setup.symbol,
+                    direction="LONG" if setup.is_long else "SHORT",
+                    shares=shares,
+                    entry_price=setup.entry_price,
+                    stop_price=setup.stop_price,
+                    tp1_price=setup.tp1_price,
+                    tp2_price=setup.tp2_price,
+                    status="open",
+                    reason=setup.reason,
+                    confidence=setup.confidence,
+                    opened_at=datetime.utcnow(),
+                )
+                db.add(row)
+                db.commit()
+                db.refresh(row)
+                self._trade_log_ids[setup.symbol] = row.id
+            except Exception as e:
+                log.error("Failed to persist trade entry for %s: %s", setup.symbol, e)
+                db.rollback()
+            finally:
+                db.close()
+            return trade
+
+        async def close(self, symbol: str, reason: str = "manual"):
+            trade = self._trades.get(symbol)
+            exit_price = None
+            pnl = None
+            if trade:
+                exit_price = trade.setup.tp2_price if trade.tp1_hit else trade.setup.stop_price
+                pnl = trade.realized_pnl
+            await super().close(symbol, reason)
+            log_id = self._trade_log_ids.pop(symbol, None)
+            if log_id:
+                db = SessionLocal()
+                try:
+                    row = db.query(TradeLog).filter(TradeLog.id == log_id).first()
+                    if row:
+                        row.exit_price = exit_price
+                        row.pnl = pnl
+                        row.status = "closed"
+                        row.closed_at = datetime.utcnow()
+                        db.commit()
+                except Exception as e:
+                    log.error("Failed to persist trade close for %s: %s", symbol, e)
+                    db.rollback()
+                finally:
+                    db.close()
 
     cfg_path = Path(__file__).parent.parent.parent / "config" / "settings.yaml"
     with open(cfg_path) as f:
@@ -251,7 +315,8 @@ async def _run_bot_for_user(user: User, symbol_override: Optional[List[str]]):
         tp1_r=strat_cfg["tp1_r"],
         tp2_r=strat_cfg["tp2_r"],
     ))
-    order_mgr = OrderManager(
+    order_mgr = LoggingOrderManager(
+        user_id=user.id,
         broker=broker,
         fill_timeout=exec_cfg["fill_timeout"],
         limit_offset_pct=exec_cfg["limit_offset_pct"],

@@ -139,11 +139,11 @@ class DataFeed:
 
         self._stream.subscribe_bars(_on_bar, *self.symbols)
         log.info("Live stream started for: %s", self.symbols)
-        await self._stream._run_forever()
+        await self._stream.run()
 
     async def stop(self):
         if self._stream:
-            await self._stream.stop()
+            self._stream.stop()
 
     # ──────────────────────────────────────────────────────────────────────
     #  Buffer access

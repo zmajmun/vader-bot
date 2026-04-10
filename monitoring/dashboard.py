@@ -80,7 +80,7 @@ class Dashboard:
         equity_str = f"[white]Equity: [bold]${self._equity:,.2f}[/][/]"
         time_str = self._last_update.strftime("%H:%M:%S UTC")
         halted = "[bold red] HALTED [/]" if self.sizer.is_halted(self._equity) else ""
-        txt = f"  {mode}  {equity_str}  Daily P&L: {pnl_str}  Positions: {self.sizer.open_position_count}/{self.sizer._cfg.max_positions}  {halted} [{time_str}]"
+        txt = f"  {mode}  {equity_str}  Daily P&L: {pnl_str}  Positions: {self.sizer.open_position_count}/{self.sizer.cfg.max_positions}  {halted} [{time_str}]"
         return Panel(Text.from_markup(txt), box=box.SIMPLE)
 
     def _positions(self) -> Panel:

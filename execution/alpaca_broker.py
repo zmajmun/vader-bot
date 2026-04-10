@@ -4,26 +4,24 @@ Supports both paper and live trading via alpaca-py SDK.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
+from functools import partial
 from typing import Optional
 
 import pandas as pd
 from alpaca.trading.client import TradingClient
 from alpaca.trading.enums import (
     OrderSide as AlpacaOrderSide,
-    OrderType as AlpacaOrderType,
     TimeInForce as AlpacaTIF,
-    QueryOrderStatus,
 )
 from alpaca.trading.requests import (
     MarketOrderRequest,
     LimitOrderRequest,
     StopOrderRequest,
-    StopLimitOrderRequest,
     TakeProfitRequest,
     StopLossRequest,
-    GetOrdersRequest,
 )
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
@@ -87,7 +85,7 @@ def _to_order(o) -> Order:
         symbol=o.symbol,
         side=OrderSide.BUY if str(o.side).lower() == "buy" else OrderSide.SELL,
         qty=int(o.qty or 0),
-        order_type=OrderType.MARKET,  # simplified
+        order_type=OrderType.MARKET,
         status=_map_status(o.status),
         limit_price=float(o.limit_price) if o.limit_price else None,
         stop_price=float(o.stop_price) if o.stop_price else None,
@@ -95,6 +93,12 @@ def _to_order(o) -> Order:
         filled_avg_price=float(o.filled_avg_price) if o.filled_avg_price else None,
         client_order_id=o.client_order_id,
     )
+
+
+async def _run(fn, *args):
+    """Run a blocking Alpaca SDK call off the event loop thread."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, fn if not args else partial(fn, *args))
 
 
 class AlpacaBroker(BrokerBase):
@@ -113,7 +117,7 @@ class AlpacaBroker(BrokerBase):
     # ── Account ────────────────────────────────────────────────────────────
 
     async def get_account(self) -> AccountInfo:
-        acct = self._trading.get_account()
+        acct = await _run(self._trading.get_account)
         return AccountInfo(
             equity=float(acct.equity),
             cash=float(acct.cash),
@@ -125,7 +129,7 @@ class AlpacaBroker(BrokerBase):
 
     async def get_position(self, symbol: str) -> Optional[Position]:
         try:
-            p = self._trading.get_open_position(symbol)
+            p = await _run(self._trading.get_open_position, symbol)
             return Position(
                 symbol=p.symbol,
                 qty=int(p.qty),
@@ -138,7 +142,7 @@ class AlpacaBroker(BrokerBase):
             return None
 
     async def get_positions(self) -> list[Position]:
-        positions = self._trading.get_all_positions()
+        positions = await _run(self._trading.get_all_positions)
         return [
             Position(
                 symbol=p.symbol,
@@ -163,7 +167,7 @@ class AlpacaBroker(BrokerBase):
             side=_SIDE_MAP[side],
             time_in_force=_TIF_MAP[tif],
         )
-        o = self._trading.submit_order(req)
+        o = await _run(self._trading.submit_order, req)
         log.info("Market order submitted: %s %s %d", side.value.upper(), symbol, qty)
         return _to_order(o)
 
@@ -184,7 +188,7 @@ class AlpacaBroker(BrokerBase):
             time_in_force=_TIF_MAP[tif],
             client_order_id=client_order_id or str(uuid.uuid4()),
         )
-        o = self._trading.submit_order(req)
+        o = await _run(self._trading.submit_order, req)
         log.info("Limit order submitted: %s %s %d @ %.4f", side.value.upper(), symbol, qty, limit_price)
         return _to_order(o)
 
@@ -199,7 +203,7 @@ class AlpacaBroker(BrokerBase):
             stop_price=round(stop_price, 2),
             time_in_force=_TIF_MAP[tif],
         )
-        o = self._trading.submit_order(req)
+        o = await _run(self._trading.submit_order, req)
         log.info("Stop order submitted: %s %s %d stop=%.4f", side.value.upper(), symbol, qty, stop_price)
         return _to_order(o)
 
@@ -240,7 +244,7 @@ class AlpacaBroker(BrokerBase):
                 take_profit=TakeProfitRequest(limit_price=round(take_profit_price, 2)),
                 client_order_id=client_order_id or str(uuid.uuid4()),
             )
-        o = self._trading.submit_order(req)
+        o = await _run(self._trading.submit_order, req)
         log.info(
             "Bracket order submitted: %s %s %d entry=%.4f stop=%.4f tp=%.4f",
             side.value.upper(), symbol, qty,
@@ -250,7 +254,7 @@ class AlpacaBroker(BrokerBase):
 
     async def cancel_order(self, order_id: str) -> bool:
         try:
-            self._trading.cancel_order_by_id(order_id)
+            await _run(self._trading.cancel_order_by_id, order_id)
             return True
         except Exception as e:
             log.warning("Cancel order %s failed: %s", order_id, e)
@@ -258,7 +262,7 @@ class AlpacaBroker(BrokerBase):
 
     async def close_position(self, symbol: str) -> Optional[Order]:
         try:
-            o = self._trading.close_position(symbol)
+            o = await _run(self._trading.close_position, symbol)
             log.info("Closed position: %s", symbol)
             return _to_order(o)
         except Exception as e:
@@ -267,7 +271,7 @@ class AlpacaBroker(BrokerBase):
 
     async def get_order(self, order_id: str) -> Optional[Order]:
         try:
-            o = self._trading.get_order_by_id(order_id)
+            o = await _run(self._trading.get_order_by_id, order_id)
             return _to_order(o)
         except Exception:
             return None
@@ -283,12 +287,11 @@ class AlpacaBroker(BrokerBase):
             symbol_or_symbols=symbol,
             timeframe=tf,
             limit=limit,
-            adjustment="all",    # dividend + split adjusted
+            adjustment="all",
         )
-        bars = self._data.get_stock_bars(req)
+        bars = await _run(self._data.get_stock_bars, req)
         df = bars.df
 
-        # Flatten multi-index if needed
         if isinstance(df.index, pd.MultiIndex):
             df = df.xs(symbol, level="symbol")
 
@@ -302,6 +305,6 @@ class AlpacaBroker(BrokerBase):
     async def get_latest_price(self, symbol: str) -> float:
         from alpaca.data.requests import StockLatestQuoteRequest
         req = StockLatestQuoteRequest(symbol_or_symbols=symbol)
-        quote = self._data.get_stock_latest_quote(req)
+        quote = await _run(self._data.get_stock_latest_quote, req)
         q = quote[symbol]
         return float((q.ask_price + q.bid_price) / 2)
